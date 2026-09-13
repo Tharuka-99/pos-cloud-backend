@@ -1,0 +1,12 @@
+package com.blackholesoftware.pos.repository;
+
+import com.blackholesoftware.pos.entity.PurchaseOrder;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface PurchaseOrderRepository extends BaseSyncRepository<PurchaseOrder, String> {
+    List<PurchaseOrder> findAllByOrderByOrderDateDesc();
+}
