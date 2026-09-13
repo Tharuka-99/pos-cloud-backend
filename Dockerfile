@@ -4,8 +4,8 @@ WORKDIR /app
 COPY . .
 RUN ./mvnw clean package -DskipTests
 
-# Step 2: Run the App using Lightweight JRE
-FROM eclipse-temurin-17-jre
+# Step 2: Run the App using Official Eclipse Temurin JRE
+FROM eclipse-temurin:17-jre
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
