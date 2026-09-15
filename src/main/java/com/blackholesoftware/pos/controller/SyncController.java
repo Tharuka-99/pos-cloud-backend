@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/sync")
+@RequestMapping("/sync")
 public class SyncController {
 
     // app_users Sync Request එක Receive කරගෙන OK 200 Return කරනවා
