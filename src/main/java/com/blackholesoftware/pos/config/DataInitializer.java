@@ -20,7 +20,6 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     @Override
-    @Transactional
     public void run(String... args) {
         Map<String, String> defaultSettings = Map.of(
                 "SHOP_NAME", "Suneri's Gift Shop",

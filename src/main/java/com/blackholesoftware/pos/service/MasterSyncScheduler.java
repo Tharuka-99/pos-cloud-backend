@@ -26,7 +26,7 @@ public class MasterSyncScheduler {
     @Autowired private SaleRepository saleRepository;
     @Autowired private SalesReturnRepository salesReturnRepository;
 
-    @Scheduled(fixedDelay = 60000) // තත්පර 60කට සැරයක් සියලුම Tables sync වේ
+    @Scheduled(fixedDelay = 60000, initialDelay = 15000) // තත්පර 60කට සැරයක් සියලුම Tables sync වේ
     public void syncAllTables() {
         System.out.println("Starting Master Sync process...");
 
