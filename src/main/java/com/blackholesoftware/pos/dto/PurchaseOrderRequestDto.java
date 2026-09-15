@@ -11,7 +11,7 @@ public class PurchaseOrderRequestDto {
     @Data
     public static class PoItemDto {
         private String productId;
-        private Integer quantity;
+        private Double quantity;
         private Double estimatedUnitCost;
     }
 }

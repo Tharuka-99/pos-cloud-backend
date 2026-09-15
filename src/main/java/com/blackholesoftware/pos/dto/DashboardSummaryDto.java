@@ -39,12 +39,12 @@ public class DashboardSummaryDto {
     public static class LowStockBatchDto {
         private String productName;
         private String batchNo;
-        private Integer currentQuantity;
+        private Double currentQuantity;
     }
 
     @Getter @Setter @AllArgsConstructor @NoArgsConstructor
     public static class TopProductDto {
         private String productName;
-        private Integer totalQuantitySold;
+        private Double totalQuantitySold;
     }
 }

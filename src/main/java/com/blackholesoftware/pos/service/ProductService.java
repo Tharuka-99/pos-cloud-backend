@@ -70,8 +70,12 @@ public class ProductService {
             batch.setCostPrice(batchDto.getCostPrice() != null ? batchDto.getCostPrice() : 0.0);
             batch.setSellingPrice(batchDto.getSellingPrice() != null ? batchDto.getSellingPrice() : 0.0);
             batch.setDiscountAmount(batchDto.getDiscountAmount() != null ? batchDto.getDiscountAmount() : 0.0);
-            batch.setInitialQuantity(batchDto.getInitialQuantity() != null ? batchDto.getInitialQuantity() : 0);
-            batch.setCurrentQuantity(batchDto.getInitialQuantity() != null ? batchDto.getInitialQuantity() : 0);
+
+            // 🟢 Decimal Support: Double mapping for initial and current quantity
+            Double initQty = batchDto.getInitialQuantity() != null ? batchDto.getInitialQuantity().doubleValue() : 0.0;
+            batch.setInitialQuantity(initQty);
+            batch.setCurrentQuantity(initQty);
+
             batch.setManufactureDate(batchDto.getManufactureDate());
             batch.setExpiryDate(batchDto.getExpiryDate());
             batch.setProduct(savedProduct);
@@ -154,8 +158,12 @@ public class ProductService {
         batch.setCostPrice(batchDto.getCostPrice() != null ? batchDto.getCostPrice() : 0.0);
         batch.setSellingPrice(batchDto.getSellingPrice() != null ? batchDto.getSellingPrice() : 0.0);
         batch.setDiscountAmount(batchDto.getDiscountAmount() != null ? batchDto.getDiscountAmount() : 0.0);
-        batch.setInitialQuantity(batchDto.getInitialQuantity() != null ? batchDto.getInitialQuantity() : 0);
-        batch.setCurrentQuantity(batchDto.getInitialQuantity() != null ? batchDto.getInitialQuantity() : 0);
+
+        // 🟢 Decimal Support: Double mapping
+        Double initQty = batchDto.getInitialQuantity() != null ? batchDto.getInitialQuantity().doubleValue() : 0.0;
+        batch.setInitialQuantity(initQty);
+        batch.setCurrentQuantity(initQty);
+
         batch.setManufactureDate(batchDto.getManufactureDate());
         batch.setExpiryDate(batchDto.getExpiryDate());
         batch.setProduct(product);
@@ -204,7 +212,7 @@ public class ProductService {
                 bDto.setCostPrice(b.getCostPrice());
                 bDto.setSellingPrice(b.getSellingPrice());
                 bDto.setDiscountAmount(b.getDiscountAmount());
-                bDto.setCurrentQuantity(b.getCurrentQuantity());
+                bDto.setCurrentQuantity(b.getCurrentQuantity()); // 🟢 Preserves Double precision
                 bDto.setExpiryDate(b.getExpiryDate());
                 return bDto;
             }).toList();
@@ -217,7 +225,7 @@ public class ProductService {
             dto.setCostPrice(batch.getCostPrice());
             dto.setSellingPrice(batch.getSellingPrice());
             dto.setDiscountAmount(batch.getDiscountAmount());
-            dto.setCurrentStock(batch.getCurrentQuantity());
+            dto.setCurrentStock(batch.getCurrentQuantity()); // 🟢 Preserves Double precision
             dto.setExpiryDate(batch.getExpiryDate());
         }
 

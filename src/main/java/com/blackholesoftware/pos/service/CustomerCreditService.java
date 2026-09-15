@@ -101,8 +101,8 @@ public class CustomerCreditService {
     }
 
     public CreditSummaryDTO getCreditSummary(LocalDateTime startDate, LocalDateTime endDate) {
-        Float totalGiven = creditTransactionRepository.getTotalCreditGivenBetween(startDate, endDate);
-        Float totalCollected = creditTransactionRepository.getTotalCreditCollectedBetween(startDate, endDate);
+        Double totalGiven = creditTransactionRepository.getTotalCreditGivenBetween(startDate, endDate);
+        Double totalCollected = creditTransactionRepository.getTotalCreditCollectedBetween(startDate, endDate);
 
         List<Customer> customers = customerRepository.findAll();
         double totalOutstanding = customers.stream()
@@ -110,8 +110,8 @@ public class CustomerCreditService {
                 .sum();
 
         return CreditSummaryDTO.builder()
-                .totalCreditGivenInPeriod(totalGiven != null ? totalGiven : 0.0f)
-                .totalCreditCollectedInPeriod(totalCollected != null ? totalCollected : 0.0f)
+                .totalCreditGivenInPeriod(totalGiven != null ? totalGiven.floatValue() : 0.0f)
+                .totalCreditCollectedInPeriod(totalCollected != null ? totalCollected.floatValue() : 0.0f)
                 .totalOutstandingCreditAllTime((float) totalOutstanding)
                 .build();
     }

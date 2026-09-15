@@ -45,16 +45,17 @@ public class SalesReturnController {
             }
             Product product = productOpt.get();
 
-            int returnQty = request.getReturnQuantity() != null ? request.getReturnQuantity() : 1;
+            // Integer වෙනුවට Double ලෙස Return Quantity ලබා ගැනීම (Supports Decimals e.g., 0.5kg)
+            double returnQty = request.getReturnQuantity() != null ? request.getReturnQuantity().doubleValue() : 1.0;
 
-            // RESTORE BATCH STOCK ONLY (No extra columns needed)
+            // RESTORE BATCH STOCK ONLY (Supports Double/Decimals)
             Batch batch = null;
             if (request.getBatchId() != null && !request.getBatchId().trim().isEmpty()) {
                 batch = batchRepository.findById(request.getBatchId()).orElse(null);
             }
 
             if (batch != null) {
-                int currentQty = batch.getCurrentQuantity() != null ? batch.getCurrentQuantity() : 0;
+                double currentQty = batch.getCurrentQuantity() != null ? batch.getCurrentQuantity() : 0.0;
                 batch.setCurrentQuantity(currentQty + returnQty);
                 batchRepository.save(batch);
             }

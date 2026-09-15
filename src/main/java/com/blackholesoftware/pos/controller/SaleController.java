@@ -143,9 +143,10 @@ public class SaleController {
                             .orElse(null);
                 }
 
-                int reqQty = itemDto.getQuantity() != null ? itemDto.getQuantity() : 0;
+                // Integer වෙනුවට Double ලෙස Quantity එක ලබා ගැනේ (eg: 500g -> 0.5kg)
+                double reqQty = itemDto.getQuantity() != null ? itemDto.getQuantity() : 0.0;
 
-                // DEDUCT BOTH BATCH STOCK AND PRODUCT TOTAL STOCK
+                // DEDUCT BOTH BATCH STOCK AND PRODUCT TOTAL STOCK (SUPPORTS DECIMALS)
                 if (batch != null) {
                     if (batch.getCurrentQuantity() < reqQty) {
                         return ResponseEntity.badRequest().body(new ApiResponse<>(
@@ -154,8 +155,8 @@ public class SaleController {
                     batch.setCurrentQuantity(batch.getCurrentQuantity() - reqQty);
                     batchRepository.save(batch);
 
-                    double currentProdStock = product.getCurrentStock() != null ? product.getCurrentStock() : 0;
-                    product.setCurrentStock(Math.max(0, currentProdStock - reqQty));
+                    double currentProdStock = product.getCurrentStock() != null ? product.getCurrentStock() : 0.0;
+                    product.setCurrentStock(Math.max(0.0, currentProdStock - reqQty));
                     productRepository.save(product);
 
                 } else {
@@ -176,7 +177,7 @@ public class SaleController {
                 saleItem.setProduct(product);
                 saleItem.setBatch(batch);
                 saleItem.setCustomer(customer);
-                saleItem.setQuantity(reqQty);
+                saleItem.setQuantity(reqQty); // Double quantity ලෙස Save කරනු ලබයි
                 saleItem.setUnitPrice(unitPrice);
                 saleItem.setUnitCost(batch.getCostPrice() != null ? batch.getCostPrice() : 0.0);
                 saleItem.setDiscount(itemDiscount);

@@ -13,7 +13,7 @@ public class GRNItem extends BaseSyncEntity {
     private Product product;
 
     @Column(nullable = false)
-    private Integer quantityReceived;
+    private Double quantityReceived;
 
     @Column(nullable = false)
     private Double unitBuyingPrice;

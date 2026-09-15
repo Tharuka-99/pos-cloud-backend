@@ -8,6 +8,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -27,6 +28,7 @@ public class GenericSyncService {
     private final RestTemplate restTemplate = new RestTemplate();
 
     // 🔴 මෙතන BaseSyncRepository<T, ?> ලෙස Type Parameter එක 2ක් වන සේ Update කරන්න
+    @Transactional
     public <T extends BaseSyncEntity> void syncTableToCloud(BaseSyncRepository<T, ?> repository, String tableName) {
         List<T> unsyncedRecords = repository.findByIsSyncedFalse();
 

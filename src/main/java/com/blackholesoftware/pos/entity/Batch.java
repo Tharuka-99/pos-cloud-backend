@@ -26,10 +26,10 @@ public class Batch extends BaseSyncEntity {
     private Double sellingPrice;
 
     @Column(nullable = false)
-    private Integer initialQuantity;
+    private Double initialQuantity;
 
     @Column(nullable = false)
-    private Integer currentQuantity;
+    private Double currentQuantity;
 
     @Column(nullable = false)
     private Double discountAmount = 0.0;

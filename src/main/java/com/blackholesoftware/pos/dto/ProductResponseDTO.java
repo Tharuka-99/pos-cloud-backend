@@ -23,7 +23,7 @@ public class ProductResponseDTO {
     private Double costPrice;
     private Double sellingPrice;
     private Double discountAmount;
-    private Integer currentStock;
+    private Double currentStock;
     private LocalDate expiryDate;
 
     // Billing UI එක සඳහා සියලුම Batches ලැයිස්තුව
@@ -36,7 +36,7 @@ public class ProductResponseDTO {
         private Double costPrice;
         private Double sellingPrice;
         private Double discountAmount;
-        private Integer currentQuantity;
+        private Double currentQuantity;
         private LocalDate expiryDate;
     }
 }

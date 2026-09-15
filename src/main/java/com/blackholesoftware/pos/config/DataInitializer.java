@@ -4,8 +4,11 @@ import com.blackholesoftware.pos.entity.SystemSetting;
 import com.blackholesoftware.pos.repository.SystemSettingRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.Optional;
 
 @Component
 public class DataInitializer implements CommandLineRunner {
@@ -17,6 +20,7 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     @Override
+    @Transactional
     public void run(String... args) {
         Map<String, String> defaultSettings = Map.of(
                 "SHOP_NAME", "Suneri's Gift Shop",
@@ -25,13 +29,27 @@ public class DataInitializer implements CommandLineRunner {
                 "RECEIPT_HEADER", "Welcome to Suneri's Gift Shop!",
                 "RECEIPT_FOOTER", "Thank you for shopping with us! Come again.",
                 "PRINTER_NAME", "POS-80",
-                "PRINTER_PAPER_SIZE", "80mm", // 80mm or 58mm
+                "PRINTER_PAPER_SIZE", "80mm",
                 "AUTO_PRINT_RECEIPT", "true"
         );
 
         defaultSettings.forEach((key, value) -> {
-            if (!settingRepository.existsById(key)) {
-                settingRepository.save(new SystemSetting(key, value));
+            Optional<SystemSetting> existingSetting = settingRepository.findBySettingKey(key);
+
+            if (existingSetting.isPresent()) {
+                // Key එක දැනටමත් තිබුණොත් එකම ID එක අරන් Update කරනවා (Duplicate Error එන්නේ නැහැ)
+                SystemSetting setting = existingSetting.get();
+                setting.setSettingValue(value);
+                setting.setUpdatedAt(LocalDateTime.now());
+                settingRepository.save(setting);
+            } else {
+                // Key එක නැත්නම් විතරක් අලුතෙන් Create කරලා Insert කරනවා
+                SystemSetting setting = new SystemSetting();
+                setting.setSettingKey(key);
+                setting.setSettingValue(value);
+                setting.setIsSynced(true);
+                setting.setUpdatedAt(LocalDateTime.now());
+                settingRepository.save(setting);
             }
         });
     }

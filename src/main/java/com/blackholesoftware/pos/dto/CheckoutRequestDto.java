@@ -23,7 +23,7 @@ public class CheckoutRequestDto {
     public static class CheckoutItemDto {
         private String productId;
         private String batchId;
-        private Integer quantity;
+        private Double quantity;
         private Double unitPrice;
         private Double discount = 0.0;
         private Double totalPrice;

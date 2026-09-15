@@ -102,7 +102,7 @@ public class DashboardService {
             }
         }
 
-        // Top Selling Items Fetching (Null-Safe)
+        // Top Selling Items Fetching (Null-Safe & Supports Decimals)
         List<Object[]> topSellingRaw = dashboardRepository.findTopSellingProducts(startDateTime, endDateTime, PageRequest.of(0, 5));
         List<DashboardSummaryDto.TopProductDto> topSellingProducts = new ArrayList<>();
         if (topSellingRaw != null) {
@@ -110,7 +110,7 @@ public class DashboardService {
                 if (row == null || row.length == 0) continue;
 
                 String productName = toStringVal(row[0], "Unknown Product");
-                Integer quantity = (row.length > 1 && row[1] != null) ? ((Number) row[1]).intValue() : 0;
+                Double quantity = (row.length > 1 && row[1] != null) ? ((Number) row[1]).doubleValue() : 0.0; // 🟢 intValue -> doubleValue (Decimals Support)
 
                 topSellingProducts.add(new DashboardSummaryDto.TopProductDto(productName, quantity));
             }

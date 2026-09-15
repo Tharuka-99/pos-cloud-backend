@@ -1,7 +1,6 @@
 package com.blackholesoftware.pos.repository;
 
 import com.blackholesoftware.pos.entity.CustomerCreditTransaction;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -21,17 +20,17 @@ public interface CustomerCreditTransactionRepository extends BaseSyncRepository<
     @Query("SELECT COALESCE(SUM(c.amount), 0.0) FROM CustomerCreditTransaction c " +
             "WHERE c.transactionType = 'CREDIT_GIVEN' " +
             "AND c.createdAt BETWEEN :startDate AND :endDate")
-    Float getTotalCreditGivenBetween(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+    Double getTotalCreditGivenBetween(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate); // 🟢 Float -> Double
 
     @Query("SELECT COALESCE(SUM(c.amount), 0.0) FROM CustomerCreditTransaction c " +
             "WHERE (c.transactionType = 'PAYMENT_RECEIVED' OR c.transactionType = 'PAID') " +
             "AND c.createdAt BETWEEN :startDate AND :endDate")
-    Float getTotalCreditCollectedBetween(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+    Double getTotalCreditCollectedBetween(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate); // 🟢 Float -> Double
 
     // අද දිනය ඇතුළත Customer Credit Repayments වලින් ලැඛුණු Cash එකතුව
     @Query("SELECT COALESCE(SUM(c.amount), 0.0) FROM CustomerCreditTransaction c " +
             "WHERE (c.transactionType = 'PAYMENT_RECEIVED' OR c.transactionType = 'PAID') " +
             "AND c.paymentMethod = 'CASH' " +
             "AND c.createdAt BETWEEN :startDate AND :endDate")
-    Float getTodayCashCreditRepayments(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+    Double getTodayCashCreditRepayments(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate); // 🟢 Float -> Double
 }

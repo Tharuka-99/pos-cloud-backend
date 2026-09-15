@@ -7,7 +7,7 @@ public class ReturnRequestDto {
     private String saleId;
     private String productId;
     private String batchId;
-    private Integer returnQuantity;
+    private Double returnQuantity;
     private String reason;
     private String userId;
 }

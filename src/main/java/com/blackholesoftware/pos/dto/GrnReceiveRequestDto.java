@@ -11,7 +11,7 @@ public class GrnReceiveRequestDto {
     @Data
     public static class GrnItemDto {
         private String productId;
-        private Integer receivedQty;
+        private Double receivedQty;
         Double costPrice;
         private Double sellingPrice;
         private Double discountAmount;

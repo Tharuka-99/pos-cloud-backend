@@ -13,7 +13,7 @@ public class PurchaseOrderItem extends BaseSyncEntity {
     private Product product;
 
     @Column(nullable = false)
-    private Integer quantity;
+    private Double quantity;
 
     private Double estimatedUnitCost;
     private Double totalPrice;

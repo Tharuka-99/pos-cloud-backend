@@ -22,7 +22,7 @@ public class ProductRequestDTO {
         private Double costPrice;
         private Double sellingPrice;
         private Double discountAmount; // Discount එකත් එකතු කළා
-        private Integer initialQuantity;
+        private Double initialQuantity;
         private LocalDate manufactureDate;
         private LocalDate expiryDate;
     }

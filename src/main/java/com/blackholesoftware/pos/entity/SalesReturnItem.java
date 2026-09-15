@@ -30,7 +30,7 @@ public class SalesReturnItem extends BaseSyncEntity {
     private Batch batch;
 
     @Column(nullable = false)
-    private Integer returnQuantity;
+    private Double returnQuantity;
 
     @Column(nullable = false)
     private Double refundUnitPrice;

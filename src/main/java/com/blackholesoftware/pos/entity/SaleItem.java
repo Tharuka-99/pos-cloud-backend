@@ -25,7 +25,7 @@ public class SaleItem extends BaseSyncEntity {
     private Customer customer;
 
     @Column(nullable = false)
-    private Integer quantity;
+    private Double quantity;
 
     @Column(nullable = false)
     private Double unitPrice;

@@ -56,12 +56,15 @@ public class PurchaseOrderService {
 
             PurchaseOrderItem item = new PurchaseOrderItem();
             item.setProduct(product);
-            item.setQuantity(itemDto.getQuantity());
+
+            // 🟢 Decimal Support for PO Quantity
+            Double qty = itemDto.getQuantity() != null ? itemDto.getQuantity().doubleValue() : 0.0;
+            item.setQuantity(qty);
 
             double cost = itemDto.getEstimatedUnitCost() != null ? itemDto.getEstimatedUnitCost() : 0.0;
             item.setEstimatedUnitCost(cost);
 
-            double total = cost * itemDto.getQuantity();
+            double total = cost * qty;
             item.setTotalPrice(total);
 
             totalPoAmount += total;
@@ -96,7 +99,9 @@ public class PurchaseOrderService {
             Double sellingPrice = grnItemDto.getSellingPrice() != null ? grnItemDto.getSellingPrice() : 0.0;
             Double costPrice = grnItemDto.getCostPrice() != null ? grnItemDto.getCostPrice() : 0.0;
             Double discountAmount = grnItemDto.getDiscountAmount() != null ? grnItemDto.getDiscountAmount() : 0.0;
-            Integer recQty = grnItemDto.getReceivedQty() != null ? grnItemDto.getReceivedQty() : 0;
+
+            // 🟢 Integer -> Double conversion for GRN Received Quantity
+            Double recQty = grnItemDto.getReceivedQty() != null ? grnItemDto.getReceivedQty().doubleValue() : 0.0;
             String itemBarcode = grnItemDto.getBarcode() != null ? grnItemDto.getBarcode().trim() : "";
 
             // 1. Price OR Barcode check -> Existing Batch lookup
@@ -106,9 +111,9 @@ public class PurchaseOrderService {
                     );
 
             if (existingBatchOpt.isPresent()) {
-                // Batch එකේ values සමාන නම් existing batch quantity update කිරීම
+                // Batch එකේ values සමාන නම් existing batch quantity update කිරීම (Double Addition)
                 Batch existingBatch = existingBatchOpt.get();
-                int currentBatchQty = existingBatch.getCurrentQuantity() != null ? existingBatch.getCurrentQuantity() : 0;
+                Double currentBatchQty = existingBatch.getCurrentQuantity() != null ? existingBatch.getCurrentQuantity() : 0.0;
                 existingBatch.setCurrentQuantity(currentBatchQty + recQty);
                 batchRepository.save(existingBatch);
             } else {
@@ -128,7 +133,7 @@ public class PurchaseOrderService {
 
             // 2. Product total stock update කිරීම
             Double currentProductStock = product.getCurrentStock() != null ? product.getCurrentStock() : 0.0;
-            product.setCurrentStock(currentProductStock + recQty.doubleValue());
+            product.setCurrentStock(currentProductStock + recQty);
             productRepository.save(product);
 
             // 3. GRN Item record එක සෑදීම
