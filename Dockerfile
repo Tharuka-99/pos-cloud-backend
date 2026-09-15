@@ -2,6 +2,8 @@
 FROM maven:3.9.6-eclipse-temurin-17 AS build
 WORKDIR /app
 COPY . .
+# Windows CRLF line endings fix
+RUN sed -i 's/\r$//' mvnw || true
 RUN chmod +x ./mvnw
 RUN ./mvnw clean package -DskipTests
 
