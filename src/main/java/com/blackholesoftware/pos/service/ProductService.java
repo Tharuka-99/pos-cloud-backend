@@ -55,11 +55,12 @@ public class ProductService {
 
         Product savedProduct = productRepository.save(product);
 
+        // Product Master Level Primary Barcode එකක් තිබේ නම් Save කිරීම (Batch = null)
         if (dto.getBarcode() != null && !dto.getBarcode().isBlank()) {
-            ProductBarcode barcode = new ProductBarcode();
-            barcode.setBarcode(dto.getBarcode().trim());
-            barcode.setProduct(savedProduct);
-            barcodeRepository.save(barcode);
+            ProductBarcode mainBarcode = new ProductBarcode();
+            mainBarcode.setBarcode(dto.getBarcode().trim());
+            mainBarcode.setProduct(savedProduct);
+            barcodeRepository.save(mainBarcode);
         }
 
         Batch batch = new Batch();
@@ -67,11 +68,16 @@ public class ProductService {
             ProductRequestDTO.InitialBatchDTO batchDto = dto.getInitialBatch();
 
             batch.setBatchNo(generateBatchNo(batchDto.getBatchNo()));
+
+            String finalBatchBarcode = (batchDto.getBarcode() != null && !batchDto.getBarcode().isBlank())
+                    ? batchDto.getBarcode().trim()
+                    : dto.getBarcode();
+            batch.setBarcode(finalBatchBarcode);
+
             batch.setCostPrice(batchDto.getCostPrice() != null ? batchDto.getCostPrice() : 0.0);
             batch.setSellingPrice(batchDto.getSellingPrice() != null ? batchDto.getSellingPrice() : 0.0);
             batch.setDiscountAmount(batchDto.getDiscountAmount() != null ? batchDto.getDiscountAmount() : 0.0);
 
-            // 🟢 Decimal Support: Double mapping for initial and current quantity
             Double initQty = batchDto.getInitialQuantity() != null ? batchDto.getInitialQuantity().doubleValue() : 0.0;
             batch.setInitialQuantity(initQty);
             batch.setCurrentQuantity(initQty);
@@ -80,24 +86,30 @@ public class ProductService {
             batch.setExpiryDate(batchDto.getExpiryDate());
             batch.setProduct(savedProduct);
 
-            batchRepository.save(batch);
+            Batch savedBatch = batchRepository.save(batch);
+
+            // 🟢 ProductBarcode Table එකට Batch එකත් එක්කම aluth record එක Save කිරීම
+            if (finalBatchBarcode != null && !finalBatchBarcode.isBlank()) {
+                ProductBarcode batchBarcodeEntity = new ProductBarcode();
+                batchBarcodeEntity.setBarcode(finalBatchBarcode);
+                batchBarcodeEntity.setProduct(savedProduct);
+                batchBarcodeEntity.setBatch(savedBatch);
+                barcodeRepository.save(batchBarcodeEntity);
+            }
         }
 
         List<Batch> allBatches = batchRepository.findByProduct(savedProduct);
         return mapToDTO(savedProduct, batch, allBatches);
     }
 
-    // Single Query Optimized Batch Fetching (Loop Queries Removed)
     public List<ProductResponseDTO> getAllProducts() {
         List<Product> products = productRepository.findAll();
         if (products.isEmpty()) return Collections.emptyList();
 
         List<String> productIds = products.stream().map(Product::getId).toList();
 
-        // Single Query eken all batches fetch karanna
         List<Batch> allBatches = batchRepository.findByProductIdIn(productIds);
 
-        // Map batches by product ID for in-memory mapping
         Map<String, List<Batch>> productBatchMap = allBatches.stream()
                 .filter(b -> b.getProduct() != null)
                 .collect(Collectors.groupingBy(b -> b.getProduct().getId()));
@@ -145,6 +157,19 @@ public class ProductService {
             product.setUnit(null);
         }
 
+        if (dto.getBarcode() != null && !dto.getBarcode().isBlank()) {
+            if (product.getBarcodes() != null && !product.getBarcodes().isEmpty()) {
+                ProductBarcode pb = product.getBarcodes().get(0);
+                pb.setBarcode(dto.getBarcode().trim());
+                barcodeRepository.save(pb);
+            } else {
+                ProductBarcode pb = new ProductBarcode();
+                pb.setBarcode(dto.getBarcode().trim());
+                pb.setProduct(product);
+                barcodeRepository.save(pb);
+            }
+        }
+
         productRepository.save(product);
     }
 
@@ -155,11 +180,15 @@ public class ProductService {
 
         Batch batch = new Batch();
         batch.setBatchNo(generateBatchNo(batchDto.getBatchNo()));
+
+        if (batchDto.getBarcode() != null && !batchDto.getBarcode().isBlank()) {
+            batch.setBarcode(batchDto.getBarcode().trim());
+        }
+
         batch.setCostPrice(batchDto.getCostPrice() != null ? batchDto.getCostPrice() : 0.0);
         batch.setSellingPrice(batchDto.getSellingPrice() != null ? batchDto.getSellingPrice() : 0.0);
         batch.setDiscountAmount(batchDto.getDiscountAmount() != null ? batchDto.getDiscountAmount() : 0.0);
 
-        // 🟢 Decimal Support: Double mapping
         Double initQty = batchDto.getInitialQuantity() != null ? batchDto.getInitialQuantity().doubleValue() : 0.0;
         batch.setInitialQuantity(initQty);
         batch.setCurrentQuantity(initQty);
@@ -168,13 +197,42 @@ public class ProductService {
         batch.setExpiryDate(batchDto.getExpiryDate());
         batch.setProduct(product);
 
-        return batchRepository.save(batch);
+        Batch savedBatch = batchRepository.save(batch);
+
+        // 🟢 අලුත් Batch එක එකතු වෙද්දී ProductBarcode Table එකටත් Entry එකක් Save කිරීම
+        if (batchDto.getBarcode() != null && !batchDto.getBarcode().isBlank()) {
+            ProductBarcode batchBarcode = new ProductBarcode();
+            batchBarcode.setBarcode(batchDto.getBarcode().trim());
+            batchBarcode.setProduct(product);
+            batchBarcode.setBatch(savedBatch);
+            barcodeRepository.save(batchBarcode);
+        }
+
+        return savedBatch;
     }
 
     @Transactional
     public Batch updateBatchDetails(String batchId, Batch batchUpdate) {
         Batch batch = batchRepository.findById(batchId)
                 .orElseThrow(() -> new RuntimeException("Batch not found with id: " + batchId));
+
+        if (batchUpdate.getBarcode() != null && !batchUpdate.getBarcode().isBlank()) {
+            String newBarcode = batchUpdate.getBarcode().trim();
+            batch.setBarcode(newBarcode);
+
+            // 🟢 ProductBarcode Table එකෙත් අදාළ Batch එකට තිබුණු Record එක Update කිරීම හෝ අලුතින් Save කිරීම
+            ProductBarcode existingBarcode = barcodeRepository.findByBatchId(batchId).orElse(null);
+            if (existingBarcode != null) {
+                existingBarcode.setBarcode(newBarcode);
+                barcodeRepository.save(existingBarcode);
+            } else {
+                ProductBarcode newBatchBarcode = new ProductBarcode();
+                newBatchBarcode.setBarcode(newBarcode);
+                newBatchBarcode.setProduct(batch.getProduct());
+                newBatchBarcode.setBatch(batch);
+                barcodeRepository.save(newBatchBarcode);
+            }
+        }
 
         if (batchUpdate.getCostPrice() != null) batch.setCostPrice(batchUpdate.getCostPrice());
         if (batchUpdate.getSellingPrice() != null) batch.setSellingPrice(batchUpdate.getSellingPrice());
@@ -209,10 +267,11 @@ public class ProductService {
                 ProductResponseDTO.BatchDTO bDto = new ProductResponseDTO.BatchDTO();
                 bDto.setId(b.getId());
                 bDto.setBatchNo(b.getBatchNo());
+                bDto.setBarcode(b.getBarcode());
                 bDto.setCostPrice(b.getCostPrice());
                 bDto.setSellingPrice(b.getSellingPrice());
                 bDto.setDiscountAmount(b.getDiscountAmount());
-                bDto.setCurrentQuantity(b.getCurrentQuantity()); // 🟢 Preserves Double precision
+                bDto.setCurrentQuantity(b.getCurrentQuantity());
                 bDto.setExpiryDate(b.getExpiryDate());
                 return bDto;
             }).toList();
@@ -225,7 +284,7 @@ public class ProductService {
             dto.setCostPrice(batch.getCostPrice());
             dto.setSellingPrice(batch.getSellingPrice());
             dto.setDiscountAmount(batch.getDiscountAmount());
-            dto.setCurrentStock(batch.getCurrentQuantity()); // 🟢 Preserves Double precision
+            dto.setCurrentStock(batch.getCurrentQuantity());
             dto.setExpiryDate(batch.getExpiryDate());
         }
 

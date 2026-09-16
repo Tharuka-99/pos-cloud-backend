@@ -16,4 +16,9 @@ public class ProductBarcode extends BaseSyncEntity {
     @JoinColumn(name = "product_id", nullable = false)
     @JsonIgnoreProperties({"barcodes", "hibernateLazyInitializer", "handler"})
     private Product product;
+
+    @ManyToOne
+    @JoinColumn(name = "batch_id", nullable = true)
+    @JsonIgnoreProperties({"product", "hibernateLazyInitializer", "handler"})
+    private Batch batch;
 }

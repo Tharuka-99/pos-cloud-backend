@@ -12,16 +12,17 @@ public class ProductRequestDTO {
     private String unitId;
     private Integer reorderLevel;
     private String barcode;
-    private String imageUrl; // Base64 Image string එක ගන්න එකතු කළා
+    private String imageUrl;
 
     private InitialBatchDTO initialBatch;
 
     @Data
     public static class InitialBatchDTO {
         private String batchNo;
+        private String barcode; // 🟢 Batch Level Barcode එකතු කරන ලදී
         private Double costPrice;
         private Double sellingPrice;
-        private Double discountAmount; // Discount එකත් එකතු කළා
+        private Double discountAmount;
         private Double initialQuantity;
         private LocalDate manufactureDate;
         private LocalDate expiryDate;

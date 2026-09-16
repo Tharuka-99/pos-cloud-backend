@@ -6,10 +6,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ProductBarcodeRepository extends BaseSyncRepository<ProductBarcode, String> {
 
     @Query("SELECT pb FROM ProductBarcode pb WHERE pb.product.id IN :productIds")
     List<ProductBarcode> findByProductIdIn(@Param("productIds") List<String> productIds);
+
+    Optional<ProductBarcode> findByBatchId(String batchId);
 }

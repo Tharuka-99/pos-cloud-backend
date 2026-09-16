@@ -18,7 +18,7 @@ public class ProductResponseDTO {
 
     private String primaryBarcode;
 
-    // Latest batch details (Fallback for simple views)
+    // Latest batch details
     private String latestBatchNo;
     private Double costPrice;
     private Double sellingPrice;
@@ -26,13 +26,13 @@ public class ProductResponseDTO {
     private Double currentStock;
     private LocalDate expiryDate;
 
-    // Billing UI එක සඳහා සියලුම Batches ලැයිස්තුව
     private List<BatchDTO> batches;
 
     @Data
     public static class BatchDTO {
         private String id;
         private String batchNo;
+        private String barcode; // 🟢 Batch Level Barcode එකතු කරන ලදී
         private Double costPrice;
         private Double sellingPrice;
         private Double discountAmount;
