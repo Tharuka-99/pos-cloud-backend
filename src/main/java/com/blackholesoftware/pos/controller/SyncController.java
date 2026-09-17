@@ -9,6 +9,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @RestController
@@ -24,7 +28,7 @@ public class SyncController {
     private ObjectMapper objectMapper;
 
     @PostMapping("/{tableName}")
-    @Transactional // Executes batch sync in a single DB connection transaction
+    @Transactional
     public ResponseEntity<?> syncTable(
             @PathVariable String tableName,
             @RequestHeader(value = "X-Terminal-ID", required = false) String terminalId,
@@ -112,9 +116,31 @@ public class SyncController {
     }
 
     private Object formatValue(Object value) throws Exception {
+        if (value == null) {
+            return null;
+        }
+
+        // String විදිහට එන Date/Time Values (ISO Format) PostgreSQL Timestamp එකට Parse කිරීම
+        if (value instanceof String strValue) {
+            if (isIsoDateTime(strValue)) {
+                try {
+                    return Timestamp.valueOf(LocalDateTime.parse(strValue));
+                } catch (Exception e1) {
+                    try {
+                        return Timestamp.from(OffsetDateTime.parse(strValue).toInstant());
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+
         if (value instanceof Map || value instanceof List) {
             return objectMapper.writeValueAsString(value);
         }
+
         return value;
+    }
+
+    private boolean isIsoDateTime(String value) {
+        return value.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*");
     }
 }
