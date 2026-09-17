@@ -7,5 +7,5 @@ import java.util.List;
 
 @Repository
 public interface PurchaseOrderItemRepository extends BaseSyncRepository<PurchaseOrderItem, String> {
-    List<PurchaseOrderItem> findByPurchaseOrderId(String purchaseOrderId);
+    List<PurchaseOrderItem> findByPurchaseOrder_Id(String purchaseOrderId);
 }

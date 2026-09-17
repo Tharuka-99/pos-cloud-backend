@@ -7,5 +7,5 @@ import java.util.List;
 
 @Repository
 public interface GRNItemRepository extends BaseSyncRepository<GRNItem, String> {
-    List<GRNItem> findByGrnId(String grnId);
+    List<GRNItem> findByGrn_Id(String grnId);
 }
