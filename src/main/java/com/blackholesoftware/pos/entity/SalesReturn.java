@@ -2,6 +2,7 @@ package com.blackholesoftware.pos.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -22,7 +23,8 @@ public class SalesReturn extends BaseSyncEntity {
     private String returnNumber;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "original_sale_id", nullable = false)
+    @JoinColumn(name = "original_sale_id", nullable = true)
+    @JsonProperty("original_sale_id")
     @JsonIgnoreProperties({"returns", "items", "hibernateLazyInitializer", "handler"})
     private Sale originalSale;
 
