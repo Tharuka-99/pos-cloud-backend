@@ -17,8 +17,9 @@ public class GRN extends BaseSyncEntity {
     @JoinColumn(name = "supplier_id", nullable = false)
     private Supplier supplier;
 
+    // වෙනස් කළ යුතු රේඛාව:
     @OneToOne
-    @JoinColumn(name = "po_id")
+    @JoinColumn(name = "purchase_order_id")
     private PurchaseOrder purchaseOrder;
 
     @Column(name = "total_amount")

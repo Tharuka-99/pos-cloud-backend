@@ -20,8 +20,9 @@ public class Expense extends BaseSyncEntity {
     @Column(name = "payment_method")
     private String paymentMethod;
 
+    // වෙනස් කළ යුතු රේඛාව:
     @ManyToOne
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "added_by_id")
     private User addedBy;
 
     @Column(name = "expense_date")
