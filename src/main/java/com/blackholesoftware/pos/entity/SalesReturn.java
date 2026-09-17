@@ -24,7 +24,7 @@ public class SalesReturn extends BaseSyncEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "original_sale_id", nullable = true)
-    @JsonProperty("original_sale_id")
+    @JsonProperty("sale_id")
     @JsonIgnoreProperties({"returns", "items", "hibernateLazyInitializer", "handler"})
     private Sale originalSale;
 
