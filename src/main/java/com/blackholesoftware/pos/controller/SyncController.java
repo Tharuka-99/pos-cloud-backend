@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -23,6 +24,7 @@ public class SyncController {
     private ObjectMapper objectMapper;
 
     @PostMapping("/{tableName}")
+    @Transactional // Executes batch sync in a single DB connection transaction
     public ResponseEntity<?> syncTable(
             @PathVariable String tableName,
             @RequestHeader(value = "X-Terminal-ID", required = false) String terminalId,
@@ -39,11 +41,10 @@ public class SyncController {
                 saveOrUpdateRecord(tableName, row);
             }
 
-            logger.info("[CLOUD SYNC SUCCESS] Table '{}': {} items saved to Cloud DB.", tableName, dataList.size());
+            logger.info("[CLOUD SYNC SUCCESS] Table '{}': {} items saved.", tableName, dataList.size());
             return ResponseEntity.ok(Map.of("message", tableName + " synced successfully"));
 
         } catch (Exception e) {
-            // Root Cause එක ලෙහා ගැනීමේ Logic එක
             Throwable rootCause = e;
             while (rootCause.getCause() != null) {
                 rootCause = rootCause.getCause();
@@ -70,7 +71,6 @@ public class SyncController {
         Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class, id);
 
         if (count != null && count > 0) {
-            // UPDATE Logic
             StringBuilder updateSql = new StringBuilder("UPDATE ").append(tableName).append(" SET ");
             List<Object> params = new ArrayList<>();
 
@@ -85,17 +85,14 @@ public class SyncController {
             updateSql.append(" WHERE id = ?");
             params.add(id);
 
-            logger.debug("[DEBUG SQL UPDATE] Query: {} | Params: {}", updateSql, params);
             jdbcTemplate.update(updateSql.toString(), params.toArray());
         } else {
-            // INSERT Logic
             StringBuilder columns = new StringBuilder();
             StringBuilder placeholders = new StringBuilder();
             List<Object> params = new ArrayList<>();
 
             for (Map.Entry<String, Object> entry : row.entrySet()) {
                 String columnName = camelToSnakeCase(entry.getKey());
-
                 columns.append(columnName).append(", ");
                 placeholders.append("?, ");
                 params.add(formatValue(entry.getValue()));
@@ -105,17 +102,13 @@ public class SyncController {
             placeholders.setLength(placeholders.length() - 2);
 
             String insertSql = "INSERT INTO " + tableName + " (" + columns + ") VALUES (" + placeholders + ")";
-
-            logger.debug("[DEBUG SQL INSERT] Query: {} | Params: {}", insertSql, params);
             jdbcTemplate.update(insertSql, params.toArray());
         }
     }
 
     private String camelToSnakeCase(String str) {
         if (str == null) return "";
-        String regex = "([a-z0-9])([A-Z])";
-        String replacement = "$1_$2";
-        return str.replaceAll(regex, replacement).toLowerCase();
+        return str.replaceAll("([a-z0-9])([A-Z])", "$1_$2").toLowerCase();
     }
 
     private Object formatValue(Object value) throws Exception {

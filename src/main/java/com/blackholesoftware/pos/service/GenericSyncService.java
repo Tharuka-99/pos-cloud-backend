@@ -9,7 +9,6 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -30,8 +29,10 @@ public class GenericSyncService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    @Transactional
+    // REMOVED @Transactional HERE to prevent holding SQLite DB connection during network call
     public <T extends BaseSyncEntity> void syncTableToCloud(BaseSyncRepository<T, ?> repository, String tableName) {
+
+        // Step 1: Query local unsynced data (DB Connection opens and closes immediately)
         List<T> unsyncedRecords = repository.findByIsSyncedFalse();
 
         if (unsyncedRecords.isEmpty()) {
@@ -52,23 +53,23 @@ public class GenericSyncService {
 
             logger.info("[SYNC REQUEST] Endpoint: {} | Terminal-ID: {}", syncEndpoint, terminalId);
 
+            // Step 2: HTTP Call (No DB connection is blocked during this network round-trip)
             ResponseEntity<String> response = restTemplate.postForEntity(syncEndpoint, request, String.class);
 
+            // Step 3: Update sync status locally upon HTTP 200
             if (response.getStatusCode().is2xxSuccessful()) {
                 for (T entity : unsyncedRecords) {
                     entity.setIsSynced(true);
                     entity.setUpdatedAt(LocalDateTime.now());
                 }
                 repository.saveAll(unsyncedRecords);
-                logger.info("[SYNC SUCCESS] Table '{}': Successfully synced {} items to Cloud. Response: {}",
-                        tableName, unsyncedRecords.size(), response.getBody());
+                logger.info("[SYNC SUCCESS] Table '{}': Successfully synced {} items to Cloud.", tableName, unsyncedRecords.size());
             } else {
-                logger.warn("[SYNC FAILED] Table '{}': Cloud returned HTTP Status: {}", tableName, response.getStatusCode());
+                logger.warn("[SYNC FAILED] Table '{}': HTTP Status: {}", tableName, response.getStatusCode());
             }
 
         } catch (HttpStatusCodeException e) {
-            logger.error("[SYNC HTTP ERROR] Table '{}' | Status: {} | Response Body: {}",
-                    tableName, e.getStatusCode(), e.getResponseBodyAsString());
+            logger.error("[SYNC HTTP ERROR] Table '{}' | Status: {} | Body: {}", tableName, e.getStatusCode(), e.getResponseBodyAsString());
         } catch (Exception e) {
             logger.error("[SYNC EXCEPTION] Table '{}' failed: {}", tableName, e.getMessage(), e);
         }
