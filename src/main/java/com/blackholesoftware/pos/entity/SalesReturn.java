@@ -30,6 +30,7 @@ public class SalesReturn extends BaseSyncEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonProperty("user_id")
     @JsonIgnoreProperties({"password", "hibernateLazyInitializer", "handler"})
     private User processedBy;
 
