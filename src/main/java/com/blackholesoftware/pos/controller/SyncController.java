@@ -77,12 +77,12 @@ public class SyncController {
             String key = entry.getKey();
             Object val = entry.getValue();
 
-            // 🟢 1. Collection/List fields Ignore කිරීම
+            // 1. OneToMany Collections / Lists Ignore කිරීම
             if (val instanceof List<?>) {
                 continue;
             }
 
-            // 🟢 2. Foreign Object Mapping
+            // 2. Foreign Object ID Auto-Extraction
             if (val instanceof Map<?, ?> nestedMap) {
                 if (nestedMap.containsKey("id")) {
                     String mappedCol = mapColumnName(key);
@@ -96,15 +96,12 @@ public class SyncController {
             }
         }
 
-        // 🟢 3. Table-Specific Column Adjustments for Cloud DB Compatibility
-
-        // cash_sessions table එකේ username column එක නොමැති නම් ignore කරන්න
+        // Schema Adjustments
         if ("cash_sessions".equalsIgnoreCase(tableName)) {
             processedData.remove("username");
             processedData.remove("user_name");
         }
 
-        // sales table එකේ cashier_id column එක user_id / cashier ලෙස remap කිරීම
         if ("sales".equalsIgnoreCase(tableName)) {
             if (processedData.containsKey("cashier_id")) {
                 Object cashierVal = processedData.remove("cashier_id");
@@ -112,7 +109,6 @@ public class SyncController {
             }
         }
 
-        // Fix for app_users username compatibility
         if ("app_users".equalsIgnoreCase(tableName)) {
             Object usernameVal = processedData.get("username");
             if (usernameVal != null) {
@@ -214,10 +210,22 @@ public class SyncController {
         String snakeCase = fieldName.replaceAll("([a-z0-9])([A-Z])", "$1_$2").toLowerCase();
 
         switch (snakeCase) {
+            case "sale":
+                return "sale_id";
+            case "sales_return":
+            case "salesreturn":
+                return "sales_return_id";
+            case "grn":
+                return "grn_id";
+            case "purchase_order":
+            case "purchaseorder":
+                return "purchase_order_id";
             case "customer":
                 return "customer_id";
             case "product":
                 return "product_id";
+            case "batch":
+                return "batch_id";
             case "cashier":
                 return "cashier_id";
             case "user":
