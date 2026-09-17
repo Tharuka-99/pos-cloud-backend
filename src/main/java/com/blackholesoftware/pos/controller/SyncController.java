@@ -69,16 +69,22 @@ public class SyncController {
         }
 
         Map<String, Object> recordData = new LinkedHashMap<>(row);
-
-        // 🟢 Foreign Object Mapping Fix (e.g., product -> product_id, category -> category_id)
         Map<String, Object> processedData = new LinkedHashMap<>();
+
         for (Map.Entry<String, Object> entry : recordData.entrySet()) {
             String key = entry.getKey();
             Object val = entry.getValue();
 
-            // Object එකක් ඇතුළේ ID එක තියෙනවා නම් (Nested Object Flattening)
-            if (val instanceof Map<?, ?> nestedMap && nestedMap.containsKey("id")) {
-                processedData.put(mapColumnName(key) + "_id", nestedMap.get("id"));
+            // 🟢 1. Collection/List fields Ignore කිරීම (e.g., product.barcodes, sale.items, sale.payments)
+            if (val instanceof List<?>) {
+                continue;
+            }
+
+            // 🟢 2. Foreign Object Mapping (e.g., product -> product_id, customer -> customer_id, cashier -> cashier_id)
+            if (val instanceof Map<?, ?> nestedMap) {
+                if (nestedMap.containsKey("id")) {
+                    processedData.put(mapColumnName(key) + "_id", nestedMap.get("id"));
+                }
             } else {
                 processedData.put(mapColumnName(key), val);
             }
@@ -93,29 +99,32 @@ public class SyncController {
             }
         }
 
+        // 🟢 3. Table Name Escaping (Hyphen "-" සහිත cash-sessions වැනි Tables සදහා Fix එක)
+        String safeTableName = "\"" + tableName.replace("\"", "") + "\"";
+
         String checkSql;
         Integer count = 0;
 
         if ("app_users".equalsIgnoreCase(tableName) && processedData.containsKey("username")) {
-            checkSql = "SELECT COUNT(*) FROM app_users WHERE id = ? OR username = ?";
+            checkSql = "SELECT COUNT(*) FROM " + safeTableName + " WHERE id = ? OR username = ?";
             count = jdbcTemplate.queryForObject(checkSql, Integer.class, id, processedData.get("username"));
         } else {
-            checkSql = "SELECT COUNT(*) FROM " + tableName + " WHERE id = ?";
+            checkSql = "SELECT COUNT(*) FROM " + safeTableName + " WHERE id = ?";
             count = jdbcTemplate.queryForObject(checkSql, Integer.class, id);
         }
 
         if (count != null && count > 0) {
             // UPDATE Logic
-            StringBuilder updateSql = new StringBuilder("UPDATE ").append(tableName).append(" SET ");
+            StringBuilder updateSql = new StringBuilder("UPDATE ").append(safeTableName).append(" SET ");
             List<Object> params = new ArrayList<>();
 
             for (Map.Entry<String, Object> entry : processedData.entrySet()) {
                 if (!entry.getKey().equalsIgnoreCase("id")) {
-                    String columnName = entry.getKey();
+                    String columnName = "\"" + entry.getKey() + "\"";
 
-                    if (isTimestampColumn(columnName)) {
+                    if (isTimestampColumn(entry.getKey())) {
                         updateSql.append(columnName).append(" = ?::timestamp, ");
-                    } else if (isBooleanColumn(columnName)) {
+                    } else if (isBooleanColumn(entry.getKey())) {
                         updateSql.append(columnName).append(" = ?::boolean, ");
                     } else {
                         updateSql.append(columnName).append(" = ?, ");
@@ -143,12 +152,12 @@ public class SyncController {
             List<Object> params = new ArrayList<>();
 
             for (Map.Entry<String, Object> entry : processedData.entrySet()) {
-                String columnName = entry.getKey();
+                String columnName = "\"" + entry.getKey() + "\"";
                 columns.append(columnName).append(", ");
 
-                if (isTimestampColumn(columnName)) {
+                if (isTimestampColumn(entry.getKey())) {
                     placeholders.append("?::timestamp, ");
-                } else if (isBooleanColumn(columnName)) {
+                } else if (isBooleanColumn(entry.getKey())) {
                     placeholders.append("?::boolean, ");
                 } else {
                     placeholders.append("?, ");
@@ -160,7 +169,7 @@ public class SyncController {
             columns.setLength(columns.length() - 2);
             placeholders.setLength(placeholders.length() - 2);
 
-            String insertSql = "INSERT INTO " + tableName + " (" + columns + ") VALUES (" + placeholders + ")";
+            String insertSql = "INSERT INTO " + safeTableName + " (" + columns + ") VALUES (" + placeholders + ")";
             jdbcTemplate.update(insertSql, params.toArray());
         }
     }
