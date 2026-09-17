@@ -9,10 +9,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @RestController
@@ -81,7 +79,16 @@ public class SyncController {
             for (Map.Entry<String, Object> entry : row.entrySet()) {
                 if (!entry.getKey().equalsIgnoreCase("id")) {
                     String columnName = camelToSnakeCase(entry.getKey());
-                    updateSql.append(columnName).append(" = ?, ");
+
+                    // Column name එක අනුව Postgres Type Cast එක dynamic ලෙස එකතු කිරීම
+                    if (isTimestampColumn(columnName)) {
+                        updateSql.append(columnName).append(" = ?::timestamp, ");
+                    } else if (isBooleanColumn(columnName)) {
+                        updateSql.append(columnName).append(" = ?::boolean, ");
+                    } else {
+                        updateSql.append(columnName).append(" = ?, ");
+                    }
+
                     params.add(formatValue(entry.getValue()));
                 }
             }
@@ -98,7 +105,16 @@ public class SyncController {
             for (Map.Entry<String, Object> entry : row.entrySet()) {
                 String columnName = camelToSnakeCase(entry.getKey());
                 columns.append(columnName).append(", ");
-                placeholders.append("?, ");
+
+                // Column name එක අනුව Postgres Type Cast එක dynamic ලෙස එකතු කිරීම
+                if (isTimestampColumn(columnName)) {
+                    placeholders.append("?::timestamp, ");
+                } else if (isBooleanColumn(columnName)) {
+                    placeholders.append("?::boolean, ");
+                } else {
+                    placeholders.append("?, ");
+                }
+
                 params.add(formatValue(entry.getValue()));
             }
 
@@ -108,6 +124,14 @@ public class SyncController {
             String insertSql = "INSERT INTO " + tableName + " (" + columns + ") VALUES (" + placeholders + ")";
             jdbcTemplate.update(insertSql, params.toArray());
         }
+    }
+
+    private boolean isTimestampColumn(String columnName) {
+        return columnName.endsWith("_at") || columnName.contains("date") || columnName.contains("time");
+    }
+
+    private boolean isBooleanColumn(String columnName) {
+        return columnName.startsWith("is_") || columnName.startsWith("has_") || columnName.equals("active");
     }
 
     private String camelToSnakeCase(String str) {
@@ -120,27 +144,10 @@ public class SyncController {
             return null;
         }
 
-        // String විදිහට එන Date/Time Values (ISO Format) PostgreSQL Timestamp එකට Parse කිරීම
-        if (value instanceof String strValue) {
-            if (isIsoDateTime(strValue)) {
-                try {
-                    return Timestamp.valueOf(LocalDateTime.parse(strValue));
-                } catch (Exception e1) {
-                    try {
-                        return Timestamp.from(OffsetDateTime.parse(strValue).toInstant());
-                    } catch (Exception ignored) {}
-                }
-            }
-        }
-
         if (value instanceof Map || value instanceof List) {
             return objectMapper.writeValueAsString(value);
         }
 
         return value;
-    }
-
-    private boolean isIsoDateTime(String value) {
-        return value.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*");
     }
 }
