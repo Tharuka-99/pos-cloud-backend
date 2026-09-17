@@ -8,9 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @RestController
 @RequestMapping("/sync")
@@ -45,8 +43,20 @@ public class SyncController {
             return ResponseEntity.ok(Map.of("message", tableName + " synced successfully"));
 
         } catch (Exception e) {
-            logger.error("[CLOUD SYNC ERROR] Failed to save data for table '{}': {}", tableName, e.getMessage(), e);
-            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+            // Root Cause එක ලෙහා ගැනීමේ Logic එක
+            Throwable rootCause = e;
+            while (rootCause.getCause() != null) {
+                rootCause = rootCause.getCause();
+            }
+
+            String detailedError = String.format("Message: %s | Root Cause: %s", e.getMessage(), rootCause.getMessage());
+            logger.error("[CLOUD SYNC ERROR] Table '{}' failed -> {}", tableName, detailedError, e);
+
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "error", "SQL Execution Failed",
+                    "details", detailedError,
+                    "table", tableName
+            ));
         }
     }
 
@@ -67,7 +77,6 @@ public class SyncController {
             for (Map.Entry<String, Object> entry : row.entrySet()) {
                 if (!entry.getKey().equalsIgnoreCase("id")) {
                     String columnName = camelToSnakeCase(entry.getKey());
-                    // Double Quotes (") අයින් කර Direct column name එක දාන්න
                     updateSql.append(columnName).append(" = ?, ");
                     params.add(formatValue(entry.getValue()));
                 }
@@ -76,6 +85,7 @@ public class SyncController {
             updateSql.append(" WHERE id = ?");
             params.add(id);
 
+            logger.debug("[DEBUG SQL UPDATE] Query: {} | Params: {}", updateSql, params);
             jdbcTemplate.update(updateSql.toString(), params.toArray());
         } else {
             // INSERT Logic
@@ -86,7 +96,6 @@ public class SyncController {
             for (Map.Entry<String, Object> entry : row.entrySet()) {
                 String columnName = camelToSnakeCase(entry.getKey());
 
-                // Double Quotes (") අයින් කළා
                 columns.append(columnName).append(", ");
                 placeholders.append("?, ");
                 params.add(formatValue(entry.getValue()));
@@ -96,14 +105,14 @@ public class SyncController {
             placeholders.setLength(placeholders.length() - 2);
 
             String insertSql = "INSERT INTO " + tableName + " (" + columns + ") VALUES (" + placeholders + ")";
+
+            logger.debug("[DEBUG SQL INSERT] Query: {} | Params: {}", insertSql, params);
             jdbcTemplate.update(insertSql, params.toArray());
         }
     }
 
-    // Improved CamelCase to Snake_case Converter
     private String camelToSnakeCase(String str) {
         if (str == null) return "";
-        // Regex එකෙන් CamelCase එක SnakeCase කරන අතරේ, ඒක already lower_case නම් වෙනස් වෙන්නේ නෑ
         String regex = "([a-z0-9])([A-Z])";
         String replacement = "$1_$2";
         return str.replaceAll(regex, replacement).toLowerCase();
