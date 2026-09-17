@@ -2,10 +2,14 @@ package com.blackholesoftware.pos.service;
 
 import com.blackholesoftware.pos.entity.BaseSyncEntity;
 import com.blackholesoftware.pos.repository.BaseSyncRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
@@ -27,12 +31,21 @@ public class GenericSyncService {
     @Value("${pos.terminal.secret-key:SECRET_KEY}")
     private String secretKey;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
 
-    // REMOVED @Transactional HERE to prevent holding SQLite DB connection during network call
+    public GenericSyncService() {
+        // Configure Jackson to serialize LocalDateTime as ISO Strings instead of JSON Arrays
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        this.restTemplate = new RestTemplate();
+        this.restTemplate.getMessageConverters().removeIf(converter -> converter instanceof MappingJackson2HttpMessageConverter);
+        this.restTemplate.getMessageConverters().add(new MappingJackson2HttpMessageConverter(objectMapper));
+    }
+
     public <T extends BaseSyncEntity> void syncTableToCloud(BaseSyncRepository<T, ?> repository, String tableName) {
 
-        // Step 1: Query local unsynced data (DB Connection opens and closes immediately)
         List<T> unsyncedRecords = repository.findByIsSyncedFalse();
 
         if (unsyncedRecords.isEmpty()) {
@@ -53,10 +66,8 @@ public class GenericSyncService {
 
             logger.info("[SYNC REQUEST] Endpoint: {} | Terminal-ID: {}", syncEndpoint, terminalId);
 
-            // Step 2: HTTP Call (No DB connection is blocked during this network round-trip)
             ResponseEntity<String> response = restTemplate.postForEntity(syncEndpoint, request, String.class);
 
-            // Step 3: Update sync status locally upon HTTP 200
             if (response.getStatusCode().is2xxSuccessful()) {
                 for (T entity : unsyncedRecords) {
                     entity.setIsSynced(true);

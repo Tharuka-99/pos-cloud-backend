@@ -10,7 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.util.*;
 
 @RestController
@@ -80,7 +79,6 @@ public class SyncController {
                 if (!entry.getKey().equalsIgnoreCase("id")) {
                     String columnName = camelToSnakeCase(entry.getKey());
 
-                    // Column name එක අනුව Postgres Type Cast එක dynamic ලෙස එකතු කිරීම
                     if (isTimestampColumn(columnName)) {
                         updateSql.append(columnName).append(" = ?::timestamp, ");
                     } else if (isBooleanColumn(columnName)) {
@@ -106,7 +104,6 @@ public class SyncController {
                 String columnName = camelToSnakeCase(entry.getKey());
                 columns.append(columnName).append(", ");
 
-                // Column name එක අනුව Postgres Type Cast එක dynamic ලෙස එකතු කිරීම
                 if (isTimestampColumn(columnName)) {
                     placeholders.append("?::timestamp, ");
                 } else if (isBooleanColumn(columnName)) {
@@ -142,6 +139,22 @@ public class SyncController {
     private Object formatValue(Object value) throws Exception {
         if (value == null) {
             return null;
+        }
+
+        // Convert Jackson array timestamps [YYYY, M, D, H, m, s, ns] into ISO format string
+        if (value instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof Number) {
+            if (list.size() >= 3) {
+                int year = ((Number) list.get(0)).intValue();
+                int month = ((Number) list.get(1)).intValue();
+                int day = ((Number) list.get(2)).intValue();
+                int hour = list.size() > 3 ? ((Number) list.get(3)).intValue() : 0;
+                int minute = list.size() > 4 ? ((Number) list.get(4)).intValue() : 0;
+                int second = list.size() > 5 ? ((Number) list.get(5)).intValue() : 0;
+                int nano = list.size() > 6 ? ((Number) list.get(6)).intValue() : 0;
+
+                LocalDateTime ldt = LocalDateTime.of(year, month, day, hour, minute, second, nano);
+                return ldt.toString();
+            }
         }
 
         if (value instanceof Map || value instanceof List) {
