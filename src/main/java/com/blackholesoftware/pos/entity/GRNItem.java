@@ -12,14 +12,15 @@ public class GRNItem extends BaseSyncEntity {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
-    @Column(nullable = false)
+    @Column(nullable = false,name = "quantity_received")
     private Double quantityReceived;
 
-    @Column(nullable = false)
+    @Column(nullable = false,name = "unit_buying_price")
     private Double unitBuyingPrice;
 
-    @Column(nullable = false)
+    @Column(nullable = false,name = "unit_selling_price")
     private Double unitSellingPrice;
 
+    @Column(name = "total_price")
     private Double totalPrice;
 }

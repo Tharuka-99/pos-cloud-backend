@@ -29,11 +29,12 @@ public class SalesReturnItem extends BaseSyncEntity {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "product"})
     private Batch batch;
 
-    @Column(nullable = false)
+    @Column(name = "return_quantity", nullable = false)
     private Double returnQuantity;
 
-    @Column(nullable = false)
+    @Column(name = "refund_unit_price", nullable = false)
     private Double refundUnitPrice;
 
+    @Column(name = "total_refund_amount")
     private Double totalRefundAmount;
 }

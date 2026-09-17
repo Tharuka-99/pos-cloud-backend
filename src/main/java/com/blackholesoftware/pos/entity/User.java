@@ -13,13 +13,13 @@ import java.time.LocalDateTime;
 @Builder
 public class User extends BaseSyncEntity {
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "user_name", nullable = false)
     private String username;
 
     @Column(nullable = false)
     private String password;
 
-    @Column(nullable = false)
+    @Column(name = "full_name", nullable = false)
     private String fullName;
 
     @Enumerated(EnumType.STRING)
@@ -27,9 +27,11 @@ public class User extends BaseSyncEntity {
     private Role role;
 
     @Builder.Default
+    @Column(name = "is_active")
     private Boolean isActive = true;
 
     @Builder.Default
+    @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public enum Role {

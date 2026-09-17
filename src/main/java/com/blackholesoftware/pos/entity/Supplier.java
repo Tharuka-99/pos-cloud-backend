@@ -12,6 +12,7 @@ public class Supplier extends BaseSyncEntity {
     @Column(nullable = false)
     private String name;
 
+    @Column(name = "company_name")
     private String companyName;
 
     @Column(nullable = false)
@@ -20,5 +21,6 @@ public class Supplier extends BaseSyncEntity {
     private String email;
     private String address;
 
+    @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 }

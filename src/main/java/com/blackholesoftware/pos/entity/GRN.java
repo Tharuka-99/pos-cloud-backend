@@ -10,7 +10,7 @@ import java.util.List;
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor
 public class GRN extends BaseSyncEntity {
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false, unique = true,name = "grn_number")
     private String grnNumber;
 
     @ManyToOne
@@ -21,13 +21,20 @@ public class GRN extends BaseSyncEntity {
     @JoinColumn(name = "po_id")
     private PurchaseOrder purchaseOrder;
 
+    @Column(name = "total_amount")
     private Double totalAmount;
+
+    @Column(name = "paid_amount")
     private Double paidAmount;
+
+    @Column(name = "due_amount")
     private Double dueAmount;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status")
     private PaymentStatus paymentStatus;
 
+    @Column(name = "received_date")
     private LocalDateTime receivedDate = LocalDateTime.now();
 
     @OneToMany(cascade = CascadeType.ALL)

@@ -28,6 +28,7 @@ public class Product extends BaseSyncEntity {
     @JoinColumn(name = "unit_id")
     private Unit unit;
 
+    @Column(name = "reorder_level")
     private Integer reorderLevel = 5;
 
     @Column(name = "current_stock")
@@ -37,7 +38,10 @@ public class Product extends BaseSyncEntity {
     @Column(name = "image_url", columnDefinition = "TEXT")
     private String imageUrl;
 
+    @Column(name = "is_active")
     private Boolean isActive = true;
+
+    @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)

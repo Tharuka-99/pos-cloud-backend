@@ -27,10 +27,14 @@ public class SaleItem extends BaseSyncEntity {
     @Column(nullable = false)
     private Double quantity;
 
-    @Column(nullable = false)
+    @Column(name = "unit_price", nullable = false)
     private Double unitPrice;
 
+    @Column(name = "unit_cost")
     private Double unitCost;
+
     private Double discount = 0.0;
+
+    @Column(name = "total_price")
     private Double totalPrice;
 }

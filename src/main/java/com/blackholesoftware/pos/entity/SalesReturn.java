@@ -18,7 +18,7 @@ import java.util.List;
 @Builder
 public class SalesReturn extends BaseSyncEntity {
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "return_number", nullable = false, unique = true)
     private String returnNumber;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -31,6 +31,7 @@ public class SalesReturn extends BaseSyncEntity {
     @JsonIgnoreProperties({"password", "hibernateLazyInitializer", "handler"})
     private User processedBy;
 
+    @Column(name = "total_refund_amount")
     private Double totalRefundAmount;
     private String reason;
 
@@ -40,6 +41,7 @@ public class SalesReturn extends BaseSyncEntity {
     private ReturnStatus status = ReturnStatus.UNSETTLED;
 
     @Builder.Default
+    @Column(name = "returned_at")
     private LocalDateTime returnedAt = LocalDateTime.now();
 
     @OneToMany(mappedBy = "salesReturn", cascade = CascadeType.ALL, orphanRemoval = true)

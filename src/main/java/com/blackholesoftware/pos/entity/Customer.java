@@ -18,12 +18,15 @@ public class Customer extends BaseSyncEntity {
     private String email;
     private String address;
 
+    @Column(name = "credit_limit")
     private Double creditLimit = 0.0;
 
     @Column(name = "current_credit")
     private Float currentCredit;
 
+    @Column(name = "loyalty_points")
     private Integer loyaltyPoints = 0;
 
+    @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 }

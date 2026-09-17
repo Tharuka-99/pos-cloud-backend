@@ -15,6 +15,9 @@ public class PurchaseOrderItem extends BaseSyncEntity {
     @Column(nullable = false)
     private Double quantity;
 
+    @Column(name = "estimated_unit_cost")
     private Double estimatedUnitCost;
+
+    @Column(name = "total_price")
     private Double totalPrice;
 }

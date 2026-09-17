@@ -10,7 +10,7 @@ import java.util.List;
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor
 public class PurchaseOrder extends BaseSyncEntity {
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "po_number", nullable = false, unique = true)
     private String poNumber;
 
     @ManyToOne
@@ -20,7 +20,10 @@ public class PurchaseOrder extends BaseSyncEntity {
     @Enumerated(EnumType.STRING)
     private Status status = Status.PENDING;
 
+    @Column(name = "total_amount")
     private Double totalAmount;
+
+    @Column(name = "order_date")
     private LocalDateTime orderDate = LocalDateTime.now();
 
     @OneToMany(cascade = CascadeType.ALL)

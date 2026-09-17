@@ -11,6 +11,6 @@ public class Unit extends BaseSyncEntity {
     @Column(nullable = false, unique = true)
     private String name;
 
-    @Column(nullable = false)
+    @Column(name = "short_code", nullable = false)
     private String shortCode;
 }
