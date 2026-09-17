@@ -77,7 +77,7 @@ public class SyncController {
 
             for (Map.Entry<String, Object> entry : row.entrySet()) {
                 if (!entry.getKey().equalsIgnoreCase("id")) {
-                    String columnName = camelToSnakeCase(entry.getKey());
+                    String columnName = mapColumnName(entry.getKey());
 
                     if (isTimestampColumn(columnName)) {
                         updateSql.append(columnName).append(" = ?::timestamp, ");
@@ -101,7 +101,7 @@ public class SyncController {
             List<Object> params = new ArrayList<>();
 
             for (Map.Entry<String, Object> entry : row.entrySet()) {
-                String columnName = camelToSnakeCase(entry.getKey());
+                String columnName = mapColumnName(entry.getKey());
                 columns.append(columnName).append(", ");
 
                 if (isTimestampColumn(columnName)) {
@@ -131,9 +131,17 @@ public class SyncController {
         return columnName.startsWith("is_") || columnName.startsWith("has_") || columnName.equals("active");
     }
 
-    private String camelToSnakeCase(String str) {
-        if (str == null) return "";
-        return str.replaceAll("([a-z0-9])([A-Z])", "$1_$2").toLowerCase();
+    private String mapColumnName(String fieldName) {
+        if (fieldName == null) return "";
+
+        String snakeCase = fieldName.replaceAll("([a-z0-9])([A-Z])", "$1_$2").toLowerCase();
+
+        // Safety alias: local app eken 'username' hari 'userName' hari ewwoth Postgres table ekata hariyatama map wei
+        if (snakeCase.equals("username") || snakeCase.equals("user_name")) {
+            return "username";
+        }
+
+        return snakeCase;
     }
 
     private Object formatValue(Object value) throws Exception {
