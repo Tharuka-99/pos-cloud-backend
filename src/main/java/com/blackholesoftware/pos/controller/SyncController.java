@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -18,7 +19,7 @@ public class SyncController {
     private static final Logger logger = LoggerFactory.getLogger(SyncController.class);
 
     @Autowired
-    private JdbcTemplate jdbcTemplate; // Cloud DB එකට Dynamic Injection එකක් කරන්න ලේසිම ක්‍රමය
+    private JdbcTemplate jdbcTemplate;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -37,7 +38,6 @@ public class SyncController {
 
         try {
             for (Map<String, Object> row : dataList) {
-                // Cloud DB එකේ Record එක දැනටමත් තියෙනවා නම් UPDATE, නැත්නම් INSERT කරන්න logic එක
                 saveOrUpdateRecord(tableName, row);
             }
 
@@ -51,28 +51,26 @@ public class SyncController {
     }
 
     private void saveOrUpdateRecord(String tableName, Map<String, Object> row) throws Exception {
-        // ID එක base කරගෙන Record එකක් Cloud DB එකේ තියෙනවද බලනවා
         Object id = row.get("id");
         if (id == null) {
             throw new IllegalArgumentException("Record missing 'id' field for table: " + tableName);
         }
 
-        // DB එක PostgreSql / MySQL වුණාට SQL Syntax handle වෙනවා
         String checkSql = "SELECT COUNT(*) FROM " + tableName + " WHERE id = ?";
         Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class, id);
 
         if (count != null && count > 0) {
             // UPDATE Logic
             StringBuilder updateSql = new StringBuilder("UPDATE ").append(tableName).append(" SET ");
-            List<Object> params = new java.util.ArrayList<>();
+            List<Object> params = new ArrayList<>();
 
             for (Map.Entry<String, Object> entry : row.entrySet()) {
                 if (!entry.getKey().equalsIgnoreCase("id")) {
-                    updateSql.append(entry.getKey()).append(" = ?, ");
+                    String columnName = camelToSnakeCase(entry.getKey());
+                    updateSql.append("\"").append(columnName).append("\" = ?, ");
                     params.add(formatValue(entry.getValue()));
                 }
             }
-            // අන්තිම කොමාව කපනවා
             updateSql.setLength(updateSql.length() - 2);
             updateSql.append(" WHERE id = ?");
             params.add(id);
@@ -82,10 +80,13 @@ public class SyncController {
             // INSERT Logic
             StringBuilder columns = new StringBuilder();
             StringBuilder placeholders = new StringBuilder();
-            List<Object> params = new java.util.ArrayList<>();
+            List<Object> params = new ArrayList<>();
 
             for (Map.Entry<String, Object> entry : row.entrySet()) {
-                columns.append(entry.getKey()).append(", ");
+                String columnName = camelToSnakeCase(entry.getKey());
+
+                // SQL Reserved keyword bypass කිරීම සඳහා column name එක double quotes ("") ඇතුලට දානවා
+                columns.append("\"").append(columnName).append("\", ");
                 placeholders.append("?, ");
                 params.add(formatValue(entry.getValue()));
             }
@@ -98,8 +99,13 @@ public class SyncController {
         }
     }
 
+    // CamelCase to Snake_case Converter Function (ex: invoiceNumber -> invoice_number)
+    private String camelToSnakeCase(String str) {
+        if (str == null) return "";
+        return str.replaceAll("([a-z])([A-Z])", "$1_$2").toLowerCase();
+    }
+
     private Object formatValue(Object value) throws Exception {
-        // Complex Objects / Nested Lists එහෙම JSON string එකක් විදියට Convert කරගන්නවා
         if (value instanceof Map || value instanceof List) {
             return objectMapper.writeValueAsString(value);
         }
