@@ -1,12 +1,16 @@
 package com.blackholesoftware.pos.service;
 
 import com.blackholesoftware.pos.repository.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
 public class MasterSyncScheduler {
+
+    private static final Logger logger = LoggerFactory.getLogger(MasterSyncScheduler.class);
 
     @Autowired private GenericSyncService syncService;
 
@@ -26,9 +30,9 @@ public class MasterSyncScheduler {
     @Autowired private SaleRepository saleRepository;
     @Autowired private SalesReturnRepository salesReturnRepository;
 
-    @Scheduled(fixedDelay = 60000, initialDelay = 15000) // තත්පර 60කට සැරයක් සියලුම Tables sync වේ
+    @Scheduled(fixedDelay = 60000, initialDelay = 15000)
     public void syncAllTables() {
-        System.out.println("Starting Master Sync process...");
+        logger.info("=================== [MASTER SYNC EXECUTION STARTED] ===================");
 
         try {
             // 1. Core Lookups & Master Data First
@@ -50,9 +54,9 @@ public class MasterSyncScheduler {
             syncService.syncTableToCloud(saleRepository, "sales");
             syncService.syncTableToCloud(salesReturnRepository, "sales-returns");
 
-            System.out.println("Master Sync completed successfully!");
+            logger.info("=================== [MASTER SYNC EXECUTION COMPLETED] ===================");
         } catch (Exception e) {
-            System.err.println("Error during Master Sync execution: " + e.getMessage());
+            logger.error("Critical error during Master Sync execution: {}", e.getMessage(), e);
         }
     }
 }

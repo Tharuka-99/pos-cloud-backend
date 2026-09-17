@@ -2,6 +2,8 @@ package com.blackholesoftware.pos.service;
 
 import com.blackholesoftware.pos.entity.BaseSyncEntity;
 import com.blackholesoftware.pos.repository.BaseSyncRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -14,6 +16,8 @@ import java.util.List;
 
 @Service
 public class GenericSyncService {
+
+    private static final Logger logger = LoggerFactory.getLogger(GenericSyncService.class);
 
     @Value("${pos.cloud.api.base-url:https://pos-cloud-backend-pv4k.onrender.com/api}")
     private String cloudApiUrl;
@@ -30,7 +34,12 @@ public class GenericSyncService {
     public <T extends BaseSyncEntity> void syncTableToCloud(BaseSyncRepository<T, ?> repository, String tableName) {
         List<T> unsyncedRecords = repository.findByIsSyncedFalse();
 
-        if (unsyncedRecords.isEmpty()) return;
+        if (unsyncedRecords.isEmpty()) {
+            logger.debug("[SYNC CHECK] Table '{}': No unsynced records found.", tableName);
+            return;
+        }
+
+        logger.info("[SYNC START] Table '{}': Found {} unsynced record(s) to push.", tableName, unsyncedRecords.size());
 
         try {
             HttpHeaders headers = new HttpHeaders();
@@ -41,7 +50,8 @@ public class GenericSyncService {
             String syncEndpoint = cloudApiUrl + "/sync/" + tableName;
             HttpEntity<List<T>> request = new HttpEntity<>(unsyncedRecords, headers);
 
-            // Response Status එක Check කරන්න
+            logger.info("[SYNC REQUEST] Endpoint: {} | Terminal-ID: {}", syncEndpoint, terminalId);
+
             ResponseEntity<String> response = restTemplate.postForEntity(syncEndpoint, request, String.class);
 
             if (response.getStatusCode().is2xxSuccessful()) {
@@ -50,16 +60,17 @@ public class GenericSyncService {
                     entity.setUpdatedAt(LocalDateTime.now());
                 }
                 repository.saveAll(unsyncedRecords);
-                System.out.println("[Sync Engine] Synced table: " + tableName + " (" + unsyncedRecords.size() + " items)");
+                logger.info("[SYNC SUCCESS] Table '{}': Successfully synced {} items to Cloud. Response: {}",
+                        tableName, unsyncedRecords.size(), response.getBody());
             } else {
-                System.err.println("[Sync Engine Failed] HTTP Status: " + response.getStatusCode() + " for table: " + tableName);
+                logger.warn("[SYNC FAILED] Table '{}': Cloud returned HTTP Status: {}", tableName, response.getStatusCode());
             }
 
         } catch (HttpStatusCodeException e) {
-            // Render 502/500 වගේ HTML Error එකක් ආවොත් ලොකු Log එකක් වැටෙන්නේ නැතුව Clean එරර් එක පෙන්වයි
-            System.err.println("[Sync Engine Error] Cloud Server Returned: " + e.getStatusCode() + " for table: " + tableName);
+            logger.error("[SYNC HTTP ERROR] Table '{}' | Status: {} | Response Body: {}",
+                    tableName, e.getStatusCode(), e.getResponseBodyAsString());
         } catch (Exception e) {
-            System.err.println("[Sync Engine Error] Table: " + tableName + " - " + e.getMessage());
+            logger.error("[SYNC EXCEPTION] Table '{}' failed: {}", tableName, e.getMessage(), e);
         }
     }
 }
