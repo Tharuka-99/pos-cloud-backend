@@ -62,11 +62,14 @@ public class SyncController {
         }
     }
 
-    private void saveOrUpdateRecord(String tableName, Map<String, Object> row) throws Exception {
+    private void saveOrUpdateRecord(String rawTableName, Map<String, Object> row) throws Exception {
         Object id = row.get("id");
         if (id == null) {
-            throw new IllegalArgumentException("Record missing 'id' field for table: " + tableName);
+            throw new IllegalArgumentException("Record missing 'id' field for table: " + rawTableName);
         }
+
+        // 🟢 Fix 1: Hyphen (-) සහිත Endpoint Table Names Postgres Table Names (Underscore) බවට පත් කිරීම
+        String tableName = resolveRealTableName(rawTableName);
 
         Map<String, Object> recordData = new LinkedHashMap<>(row);
         Map<String, Object> processedData = new LinkedHashMap<>();
@@ -83,7 +86,13 @@ public class SyncController {
             // 🟢 2. Foreign Object Mapping (e.g., product -> product_id, customer -> customer_id, cashier -> cashier_id)
             if (val instanceof Map<?, ?> nestedMap) {
                 if (nestedMap.containsKey("id")) {
-                    processedData.put(mapColumnName(key) + "_id", nestedMap.get("id"));
+                    String mappedCol = mapColumnName(key);
+                    // Single name එකක් නම් (e.g., product) -> product_id ලෙසත්,
+                    // දැනටමත් _id තියෙනවා නම් ඒ විදිහටත් set කරයි
+                    if (!mappedCol.endsWith("_id")) {
+                        mappedCol = mappedCol + "_id";
+                    }
+                    processedData.put(mappedCol, nestedMap.get("id"));
                 }
             } else {
                 processedData.put(mapColumnName(key), val);
@@ -99,7 +108,7 @@ public class SyncController {
             }
         }
 
-        // 🟢 3. Table Name Escaping (Hyphen "-" සහිත cash-sessions වැනි Tables සදහා Fix එක)
+        // 🟢 3. Table Name Escaping
         String safeTableName = "\"" + tableName.replace("\"", "") + "\"";
 
         String checkSql;
@@ -174,6 +183,12 @@ public class SyncController {
         }
     }
 
+    // 🟢 Table Name Hyphen Fix Helper
+    private String resolveRealTableName(String tableName) {
+        if (tableName == null) return "";
+        return tableName.replace("-", "_").toLowerCase();
+    }
+
     private boolean isTimestampColumn(String columnName) {
         return columnName.endsWith("_at") || columnName.contains("date") || columnName.contains("time");
     }
@@ -187,12 +202,30 @@ public class SyncController {
 
         String snakeCase = fieldName.replaceAll("([a-z0-9])([A-Z])", "$1_$2").toLowerCase();
 
-        // Safety alias: local app eken 'username' hari 'userName' hari ewwoth Postgres table ekata hariyatama map wei
-        if (snakeCase.equals("username") || snakeCase.equals("user_name")) {
-            return "username";
+        // 🟢 Explicit FK and Alias Mappings
+        switch (snakeCase) {
+            case "customer":
+                return "customer_id";
+            case "product":
+                return "product_id";
+            case "cashier":
+                return "cashier_id";
+            case "user":
+                return "user_id";
+            case "category":
+                return "category_id";
+            case "brand":
+                return "brand_id";
+            case "unit":
+                return "unit_id";
+            case "supplier":
+                return "supplier_id";
+            case "username":
+            case "user_name":
+                return "username";
+            default:
+                return snakeCase;
         }
-
-        return snakeCase;
     }
 
     private Object formatValue(Object value) throws Exception {
