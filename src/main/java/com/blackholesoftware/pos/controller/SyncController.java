@@ -67,7 +67,8 @@ public class SyncController {
             for (Map.Entry<String, Object> entry : row.entrySet()) {
                 if (!entry.getKey().equalsIgnoreCase("id")) {
                     String columnName = camelToSnakeCase(entry.getKey());
-                    updateSql.append("\"").append(columnName).append("\" = ?, ");
+                    // Double Quotes (") අයින් කර Direct column name එක දාන්න
+                    updateSql.append(columnName).append(" = ?, ");
                     params.add(formatValue(entry.getValue()));
                 }
             }
@@ -85,8 +86,8 @@ public class SyncController {
             for (Map.Entry<String, Object> entry : row.entrySet()) {
                 String columnName = camelToSnakeCase(entry.getKey());
 
-                // SQL Reserved keyword bypass කිරීම සඳහා column name එක double quotes ("") ඇතුලට දානවා
-                columns.append("\"").append(columnName).append("\", ");
+                // Double Quotes (") අයින් කළා
+                columns.append(columnName).append(", ");
                 placeholders.append("?, ");
                 params.add(formatValue(entry.getValue()));
             }
@@ -99,10 +100,13 @@ public class SyncController {
         }
     }
 
-    // CamelCase to Snake_case Converter Function (ex: invoiceNumber -> invoice_number)
+    // Improved CamelCase to Snake_case Converter
     private String camelToSnakeCase(String str) {
         if (str == null) return "";
-        return str.replaceAll("([a-z])([A-Z])", "$1_$2").toLowerCase();
+        // Regex එකෙන් CamelCase එක SnakeCase කරන අතරේ, ඒක already lower_case නම් වෙනස් වෙන්නේ නෑ
+        String regex = "([a-z0-9])([A-Z])";
+        String replacement = "$1_$2";
+        return str.replaceAll(regex, replacement).toLowerCase();
     }
 
     private Object formatValue(Object value) throws Exception {
