@@ -22,7 +22,7 @@ public class SalesReturn extends BaseSyncEntity {
     private String returnNumber;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sale_id", nullable = false)
+    @JoinColumn(name = "original_sale_id", nullable = false)
     @JsonIgnoreProperties({"returns", "items", "hibernateLazyInitializer", "handler"})
     private Sale originalSale;
 
