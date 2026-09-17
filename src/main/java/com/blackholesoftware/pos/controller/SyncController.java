@@ -68,7 +68,6 @@ public class SyncController {
             throw new IllegalArgumentException("Record missing 'id' field for table: " + rawTableName);
         }
 
-        // 🟢 Fix 1: Hyphen (-) සහිත Endpoint Table Names Postgres Table Names (Underscore) බවට පත් කිරීම
         String tableName = resolveRealTableName(rawTableName);
 
         Map<String, Object> recordData = new LinkedHashMap<>(row);
@@ -78,17 +77,15 @@ public class SyncController {
             String key = entry.getKey();
             Object val = entry.getValue();
 
-            // 🟢 1. Collection/List fields Ignore කිරීම (e.g., product.barcodes, sale.items, sale.payments)
+            // 🟢 1. Collection/List fields Ignore කිරීම
             if (val instanceof List<?>) {
                 continue;
             }
 
-            // 🟢 2. Foreign Object Mapping (e.g., product -> product_id, customer -> customer_id, cashier -> cashier_id)
+            // 🟢 2. Foreign Object Mapping
             if (val instanceof Map<?, ?> nestedMap) {
                 if (nestedMap.containsKey("id")) {
                     String mappedCol = mapColumnName(key);
-                    // Single name එකක් නම් (e.g., product) -> product_id ලෙසත්,
-                    // දැනටමත් _id තියෙනවා නම් ඒ විදිහටත් set කරයි
                     if (!mappedCol.endsWith("_id")) {
                         mappedCol = mappedCol + "_id";
                     }
@@ -96,6 +93,22 @@ public class SyncController {
                 }
             } else {
                 processedData.put(mapColumnName(key), val);
+            }
+        }
+
+        // 🟢 3. Table-Specific Column Adjustments for Cloud DB Compatibility
+
+        // cash_sessions table එකේ username column එක නොමැති නම් ignore කරන්න
+        if ("cash_sessions".equalsIgnoreCase(tableName)) {
+            processedData.remove("username");
+            processedData.remove("user_name");
+        }
+
+        // sales table එකේ cashier_id column එක user_id / cashier ලෙස remap කිරීම
+        if ("sales".equalsIgnoreCase(tableName)) {
+            if (processedData.containsKey("cashier_id")) {
+                Object cashierVal = processedData.remove("cashier_id");
+                processedData.put("user_id", cashierVal);
             }
         }
 
@@ -108,7 +121,6 @@ public class SyncController {
             }
         }
 
-        // 🟢 3. Table Name Escaping
         String safeTableName = "\"" + tableName.replace("\"", "") + "\"";
 
         String checkSql;
@@ -183,7 +195,6 @@ public class SyncController {
         }
     }
 
-    // 🟢 Table Name Hyphen Fix Helper
     private String resolveRealTableName(String tableName) {
         if (tableName == null) return "";
         return tableName.replace("-", "_").toLowerCase();
@@ -202,7 +213,6 @@ public class SyncController {
 
         String snakeCase = fieldName.replaceAll("([a-z0-9])([A-Z])", "$1_$2").toLowerCase();
 
-        // 🟢 Explicit FK and Alias Mappings
         switch (snakeCase) {
             case "customer":
                 return "customer_id";
@@ -233,7 +243,6 @@ public class SyncController {
             return null;
         }
 
-        // Convert Jackson array timestamps [YYYY, M, D, H, m, s, ns] into ISO format string
         if (value instanceof List<?> list && !list.isEmpty() && list.get(0) instanceof Number) {
             if (list.size() >= 3) {
                 int year = ((Number) list.get(0)).intValue();
