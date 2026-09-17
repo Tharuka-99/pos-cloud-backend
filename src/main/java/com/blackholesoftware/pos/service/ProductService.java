@@ -55,23 +55,17 @@ public class ProductService {
 
         Product savedProduct = productRepository.save(product);
 
-        // Product Master Level Primary Barcode එකක් තිබේ නම් Save කිරීම (Batch = null)
-        if (dto.getBarcode() != null && !dto.getBarcode().isBlank()) {
-            ProductBarcode mainBarcode = new ProductBarcode();
-            mainBarcode.setBarcode(dto.getBarcode().trim());
-            mainBarcode.setProduct(savedProduct);
-            barcodeRepository.save(mainBarcode);
-        }
-
         Batch batch = new Batch();
         if (dto.getInitialBatch() != null) {
             ProductRequestDTO.InitialBatchDTO batchDto = dto.getInitialBatch();
 
             batch.setBatchNo(generateBatchNo(batchDto.getBatchNo()));
 
+            // Batch එකට වෙනම barcode එකක් නැත්නම් Product එකේ main barcode එක ගන්නවා
             String finalBatchBarcode = (batchDto.getBarcode() != null && !batchDto.getBarcode().isBlank())
                     ? batchDto.getBarcode().trim()
-                    : dto.getBarcode();
+                    : (dto.getBarcode() != null ? dto.getBarcode().trim() : null);
+
             batch.setBarcode(finalBatchBarcode);
 
             batch.setCostPrice(batchDto.getCostPrice() != null ? batchDto.getCostPrice() : 0.0);
@@ -88,7 +82,7 @@ public class ProductService {
 
             Batch savedBatch = batchRepository.save(batch);
 
-            // 🟢 ProductBarcode Table එකට Batch එකත් එක්කම aluth record එක Save කිරීම
+            // 🟢 Barcode එක Product and Batch දෙකටම associate කරලා එක සැරයක් Save කිරීම
             if (finalBatchBarcode != null && !finalBatchBarcode.isBlank()) {
                 ProductBarcode batchBarcodeEntity = new ProductBarcode();
                 batchBarcodeEntity.setBarcode(finalBatchBarcode);
@@ -96,6 +90,12 @@ public class ProductService {
                 batchBarcodeEntity.setBatch(savedBatch);
                 barcodeRepository.save(batchBarcodeEntity);
             }
+        } else if (dto.getBarcode() != null && !dto.getBarcode().isBlank()) {
+            // Initial batch එකක් නැත්නම් විතරක් Primary Product Barcode එක ලෙස Save කිරීම
+            ProductBarcode mainBarcode = new ProductBarcode();
+            mainBarcode.setBarcode(dto.getBarcode().trim());
+            mainBarcode.setProduct(savedProduct);
+            barcodeRepository.save(mainBarcode);
         }
 
         List<Batch> allBatches = batchRepository.findByProduct(savedProduct);

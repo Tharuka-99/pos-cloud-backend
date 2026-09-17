@@ -68,44 +68,50 @@ public class SyncController {
             throw new IllegalArgumentException("Record missing 'id' field for table: " + tableName);
         }
 
-        // Fix for app_users: Duplicate 'username' to 'user_name' to bypass PostgreSQL NOT NULL constraints
         Map<String, Object> recordData = new LinkedHashMap<>(row);
-        if ("app_users".equalsIgnoreCase(tableName)) {
-            Object usernameVal = null;
-            if (recordData.containsKey("username")) {
-                usernameVal = recordData.get("username");
-            } else if (recordData.containsKey("userName")) {
-                usernameVal = recordData.get("userName");
-            } else if (recordData.containsKey("user_name")) {
-                usernameVal = recordData.get("user_name");
-            }
 
-            if (usernameVal != null) {
-                recordData.put("username", usernameVal);
-                recordData.put("user_name", usernameVal);
+        // 🟢 Foreign Object Mapping Fix (e.g., product -> product_id, category -> category_id)
+        Map<String, Object> processedData = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : recordData.entrySet()) {
+            String key = entry.getKey();
+            Object val = entry.getValue();
+
+            // Object එකක් ඇතුළේ ID එක තියෙනවා නම් (Nested Object Flattening)
+            if (val instanceof Map<?, ?> nestedMap && nestedMap.containsKey("id")) {
+                processedData.put(mapColumnName(key) + "_id", nestedMap.get("id"));
+            } else {
+                processedData.put(mapColumnName(key), val);
             }
         }
 
-        // Checking existence: app_users table ekata username eකෙනුත් check කරනවා
+        // Fix for app_users username compatibility
+        if ("app_users".equalsIgnoreCase(tableName)) {
+            Object usernameVal = processedData.get("username");
+            if (usernameVal != null) {
+                processedData.put("username", usernameVal);
+                processedData.put("user_name", usernameVal);
+            }
+        }
+
         String checkSql;
         Integer count = 0;
 
-        if ("app_users".equalsIgnoreCase(tableName) && recordData.containsKey("username")) {
+        if ("app_users".equalsIgnoreCase(tableName) && processedData.containsKey("username")) {
             checkSql = "SELECT COUNT(*) FROM app_users WHERE id = ? OR username = ?";
-            count = jdbcTemplate.queryForObject(checkSql, Integer.class, id, recordData.get("username"));
+            count = jdbcTemplate.queryForObject(checkSql, Integer.class, id, processedData.get("username"));
         } else {
             checkSql = "SELECT COUNT(*) FROM " + tableName + " WHERE id = ?";
             count = jdbcTemplate.queryForObject(checkSql, Integer.class, id);
         }
 
         if (count != null && count > 0) {
-            // UPDATE record logic
+            // UPDATE Logic
             StringBuilder updateSql = new StringBuilder("UPDATE ").append(tableName).append(" SET ");
             List<Object> params = new ArrayList<>();
 
-            for (Map.Entry<String, Object> entry : recordData.entrySet()) {
+            for (Map.Entry<String, Object> entry : processedData.entrySet()) {
                 if (!entry.getKey().equalsIgnoreCase("id")) {
-                    String columnName = mapColumnName(entry.getKey());
+                    String columnName = entry.getKey();
 
                     if (isTimestampColumn(columnName)) {
                         updateSql.append(columnName).append(" = ?::timestamp, ");
@@ -120,10 +126,10 @@ public class SyncController {
             }
             updateSql.setLength(updateSql.length() - 2);
 
-            if ("app_users".equalsIgnoreCase(tableName) && recordData.containsKey("username")) {
+            if ("app_users".equalsIgnoreCase(tableName) && processedData.containsKey("username")) {
                 updateSql.append(" WHERE id = ? OR username = ?");
                 params.add(id);
-                params.add(recordData.get("username"));
+                params.add(processedData.get("username"));
             } else {
                 updateSql.append(" WHERE id = ?");
                 params.add(id);
@@ -131,13 +137,13 @@ public class SyncController {
 
             jdbcTemplate.update(updateSql.toString(), params.toArray());
         } else {
-            // INSERT record logic
+            // INSERT Logic
             StringBuilder columns = new StringBuilder();
             StringBuilder placeholders = new StringBuilder();
             List<Object> params = new ArrayList<>();
 
-            for (Map.Entry<String, Object> entry : recordData.entrySet()) {
-                String columnName = mapColumnName(entry.getKey());
+            for (Map.Entry<String, Object> entry : processedData.entrySet()) {
+                String columnName = entry.getKey();
                 columns.append(columnName).append(", ");
 
                 if (isTimestampColumn(columnName)) {

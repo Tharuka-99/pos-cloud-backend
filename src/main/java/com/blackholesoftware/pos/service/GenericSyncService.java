@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional; // 👈 Add this import
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
@@ -34,7 +35,6 @@ public class GenericSyncService {
     private final RestTemplate restTemplate;
 
     public GenericSyncService() {
-        // Configure Jackson to serialize LocalDateTime as ISO Strings instead of JSON Arrays
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -44,6 +44,8 @@ public class GenericSyncService {
         this.restTemplate.getMessageConverters().add(new MappingJackson2HttpMessageConverter(objectMapper));
     }
 
+    // 🟢 @Transactional(readOnly = true) යෙදීමෙන් Hibernate Session එක Jackson Serialize වෙන තෙක් Active ව තබයි.
+    @Transactional(readOnly = true)
     public <T extends BaseSyncEntity> void syncTableToCloud(BaseSyncRepository<T, ?> repository, String tableName) {
 
         List<T> unsyncedRecords = repository.findByIsSyncedFalse();
