@@ -23,7 +23,7 @@ public class SalesReturn extends BaseSyncEntity {
     private String returnNumber;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "original_sale_id", nullable = true)
+    @JoinColumn(name = "original_sale_id", nullable = false) // 👈 Nullable false කළා Cloud DB එකට ගැළපෙන සේ
     @JsonProperty("sale_id")
     @JsonIgnoreProperties({"returns", "items", "hibernateLazyInitializer", "handler"})
     private Sale originalSale;
@@ -52,12 +52,16 @@ public class SalesReturn extends BaseSyncEntity {
     private List<SalesReturnItem> items = new ArrayList<>();
 
     @PrePersist
+    @PreUpdate
     protected void onCreate() {
         if (this.status == null) {
             this.status = ReturnStatus.UNSETTLED;
         }
         if (this.returnedAt == null) {
             this.returnedAt = LocalDateTime.now();
+        }
+        if (this.originalSale == null) {
+            throw new IllegalStateException("SalesReturn must have a valid associated Sale!");
         }
     }
 

@@ -1,6 +1,7 @@
 package com.blackholesoftware.pos.service;
 
 import com.blackholesoftware.pos.entity.BaseSyncEntity;
+import com.blackholesoftware.pos.entity.SalesReturn;
 import com.blackholesoftware.pos.repository.BaseSyncRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -11,11 +12,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional; // 👈 Add this import
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -44,7 +46,6 @@ public class GenericSyncService {
         this.restTemplate.getMessageConverters().add(new MappingJackson2HttpMessageConverter(objectMapper));
     }
 
-    // 🟢 @Transactional(readOnly = true) යෙදීමෙන් Hibernate Session එක Jackson Serialize වෙන තෙක් Active ව තබයි.
     @Transactional(readOnly = true)
     public <T extends BaseSyncEntity> void syncTableToCloud(BaseSyncRepository<T, ?> repository, String tableName) {
 
@@ -55,7 +56,24 @@ public class GenericSyncService {
             return;
         }
 
-        logger.info("[SYNC START] Table '{}': Found {} unsynced record(s) to push.", tableName, unsyncedRecords.size());
+        // 🟢 Filter out invalid SalesReturn records with null sale_id to prevent Cloud SQL Not-Null Violation
+        List<T> validRecords = new ArrayList<>();
+        for (T record : unsyncedRecords) {
+            if (record instanceof SalesReturn returnRecord) {
+                if (returnRecord.getOriginalSale() == null) {
+                    logger.warn("[SYNC SKIP] Skipping SalesReturn '{}' because 'original_sale_id' is null.", returnRecord.getReturnNumber());
+                    continue;
+                }
+            }
+            validRecords.add(record);
+        }
+
+        if (validRecords.isEmpty()) {
+            logger.warn("[SYNC SKIP] Table '{}': All unsynced records were invalid and skipped.", tableName);
+            return;
+        }
+
+        logger.info("[SYNC START] Table '{}': Found {} unsynced record(s) to push.", tableName, validRecords.size());
 
         try {
             HttpHeaders headers = new HttpHeaders();
@@ -64,19 +82,19 @@ public class GenericSyncService {
             headers.set("X-Terminal-Secret", secretKey);
 
             String syncEndpoint = cloudApiUrl + "/sync/" + tableName;
-            HttpEntity<List<T>> request = new HttpEntity<>(unsyncedRecords, headers);
+            HttpEntity<List<T>> request = new HttpEntity<>(validRecords, headers);
 
             logger.info("[SYNC REQUEST] Endpoint: {} | Terminal-ID: {}", syncEndpoint, terminalId);
 
             ResponseEntity<String> response = restTemplate.postForEntity(syncEndpoint, request, String.class);
 
             if (response.getStatusCode().is2xxSuccessful()) {
-                for (T entity : unsyncedRecords) {
+                for (T entity : validRecords) {
                     entity.setIsSynced(true);
                     entity.setUpdatedAt(LocalDateTime.now());
                 }
-                repository.saveAll(unsyncedRecords);
-                logger.info("[SYNC SUCCESS] Table '{}': Successfully synced {} items to Cloud.", tableName, unsyncedRecords.size());
+                repository.saveAll(validRecords);
+                logger.info("[SYNC SUCCESS] Table '{}': Successfully synced {} items to Cloud.", tableName, validRecords.size());
             } else {
                 logger.warn("[SYNC FAILED] Table '{}': HTTP Status: {}", tableName, response.getStatusCode());
             }
