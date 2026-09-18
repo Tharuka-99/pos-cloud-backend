@@ -43,6 +43,7 @@ public class CashSessionController {
             }
 
             sessionRequest.setStatus("OPEN");
+            sessionRequest.setIsSynced(false);
             if (sessionRequest.getOpenedAt() == null) {
                 sessionRequest.setOpenedAt(LocalDateTime.now());
             }
@@ -63,6 +64,7 @@ public class CashSessionController {
             if (optionalSession.isPresent()) {
                 CashSession session = optionalSession.get();
                 session.setStatus("CLOSED");
+                session.setIsSynced(false);
 
                 if (closeData.getClosingActualCash() != null) {
                     session.setClosingActualCash(closeData.getClosingActualCash());
@@ -81,5 +83,17 @@ public class CashSessionController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse<>(false, "Failed to close session: " + e.getMessage(), null));
         }
+    }
+
+    @PostMapping("/sync/{id}")
+    public ResponseEntity<ApiResponse<CashSession>> syncSession(@PathVariable String id) {
+        Optional<CashSession> optionalSession = cashSessionRepository.findById(id);
+        if (optionalSession.isPresent()) {
+            CashSession session = optionalSession.get();
+            session.setIsSynced(true);
+            CashSession updated = cashSessionRepository.save(session);
+            return ResponseEntity.ok(new ApiResponse<>(true, "Synced successfully", updated));
+        }
+        return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Session not found", null));
     }
 }

@@ -7,6 +7,7 @@ import com.blackholesoftware.pos.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -53,6 +54,8 @@ public class ProductService {
             unitRepository.findById(dto.getUnitId()).ifPresent(product::setUnit);
         }
 
+        product.setIsSynced(false);
+        product.setUpdatedAt(LocalDateTime.now());
         Product savedProduct = productRepository.save(product);
 
         Batch batch = new Batch();
@@ -61,13 +64,11 @@ public class ProductService {
 
             batch.setBatchNo(generateBatchNo(batchDto.getBatchNo()));
 
-            // Batch එකට වෙනම barcode එකක් නැත්නම් Product එකේ main barcode එක ගන්නවා
             String finalBatchBarcode = (batchDto.getBarcode() != null && !batchDto.getBarcode().isBlank())
                     ? batchDto.getBarcode().trim()
                     : (dto.getBarcode() != null ? dto.getBarcode().trim() : null);
 
             batch.setBarcode(finalBatchBarcode);
-
             batch.setCostPrice(batchDto.getCostPrice() != null ? batchDto.getCostPrice() : 0.0);
             batch.setSellingPrice(batchDto.getSellingPrice() != null ? batchDto.getSellingPrice() : 0.0);
             batch.setDiscountAmount(batchDto.getDiscountAmount() != null ? batchDto.getDiscountAmount() : 0.0);
@@ -79,22 +80,26 @@ public class ProductService {
             batch.setManufactureDate(batchDto.getManufactureDate());
             batch.setExpiryDate(batchDto.getExpiryDate());
             batch.setProduct(savedProduct);
+            batch.setIsSynced(false);
+            batch.setUpdatedAt(LocalDateTime.now());
 
             Batch savedBatch = batchRepository.save(batch);
 
-            // 🟢 Barcode එක Product and Batch දෙකටම associate කරලා එක සැරයක් Save කිරීම
             if (finalBatchBarcode != null && !finalBatchBarcode.isBlank()) {
                 ProductBarcode batchBarcodeEntity = new ProductBarcode();
                 batchBarcodeEntity.setBarcode(finalBatchBarcode);
                 batchBarcodeEntity.setProduct(savedProduct);
                 batchBarcodeEntity.setBatch(savedBatch);
+                batchBarcodeEntity.setIsSynced(false);
+                batchBarcodeEntity.setUpdatedAt(LocalDateTime.now());
                 barcodeRepository.save(batchBarcodeEntity);
             }
         } else if (dto.getBarcode() != null && !dto.getBarcode().isBlank()) {
-            // Initial batch එකක් නැත්නම් විතරක් Primary Product Barcode එක ලෙස Save කිරීම
             ProductBarcode mainBarcode = new ProductBarcode();
             mainBarcode.setBarcode(dto.getBarcode().trim());
             mainBarcode.setProduct(savedProduct);
+            mainBarcode.setIsSynced(false);
+            mainBarcode.setUpdatedAt(LocalDateTime.now());
             barcodeRepository.save(mainBarcode);
         }
 
@@ -107,7 +112,6 @@ public class ProductService {
         if (products.isEmpty()) return Collections.emptyList();
 
         List<String> productIds = products.stream().map(Product::getId).toList();
-
         List<Batch> allBatches = batchRepository.findByProductIdIn(productIds);
 
         Map<String, List<Batch>> productBatchMap = allBatches.stream()
@@ -161,15 +165,21 @@ public class ProductService {
             if (product.getBarcodes() != null && !product.getBarcodes().isEmpty()) {
                 ProductBarcode pb = product.getBarcodes().get(0);
                 pb.setBarcode(dto.getBarcode().trim());
+                pb.setIsSynced(false);
+                pb.setUpdatedAt(LocalDateTime.now());
                 barcodeRepository.save(pb);
             } else {
                 ProductBarcode pb = new ProductBarcode();
                 pb.setBarcode(dto.getBarcode().trim());
                 pb.setProduct(product);
+                pb.setIsSynced(false);
+                pb.setUpdatedAt(LocalDateTime.now());
                 barcodeRepository.save(pb);
             }
         }
 
+        product.setIsSynced(false);
+        product.setUpdatedAt(LocalDateTime.now());
         productRepository.save(product);
     }
 
@@ -196,15 +206,18 @@ public class ProductService {
         batch.setManufactureDate(batchDto.getManufactureDate());
         batch.setExpiryDate(batchDto.getExpiryDate());
         batch.setProduct(product);
+        batch.setIsSynced(false);
+        batch.setUpdatedAt(LocalDateTime.now());
 
         Batch savedBatch = batchRepository.save(batch);
 
-        // 🟢 අලුත් Batch එක එකතු වෙද්දී ProductBarcode Table එකටත් Entry එකක් Save කිරීම
         if (batchDto.getBarcode() != null && !batchDto.getBarcode().isBlank()) {
             ProductBarcode batchBarcode = new ProductBarcode();
             batchBarcode.setBarcode(batchDto.getBarcode().trim());
             batchBarcode.setProduct(product);
             batchBarcode.setBatch(savedBatch);
+            batchBarcode.setIsSynced(false);
+            batchBarcode.setUpdatedAt(LocalDateTime.now());
             barcodeRepository.save(batchBarcode);
         }
 
@@ -220,16 +233,19 @@ public class ProductService {
             String newBarcode = batchUpdate.getBarcode().trim();
             batch.setBarcode(newBarcode);
 
-            // 🟢 ProductBarcode Table එකෙත් අදාළ Batch එකට තිබුණු Record එක Update කිරීම හෝ අලුතින් Save කිරීම
             ProductBarcode existingBarcode = barcodeRepository.findByBatchId(batchId).orElse(null);
             if (existingBarcode != null) {
                 existingBarcode.setBarcode(newBarcode);
+                existingBarcode.setIsSynced(false);
+                existingBarcode.setUpdatedAt(LocalDateTime.now());
                 barcodeRepository.save(existingBarcode);
             } else {
                 ProductBarcode newBatchBarcode = new ProductBarcode();
                 newBatchBarcode.setBarcode(newBarcode);
                 newBatchBarcode.setProduct(batch.getProduct());
                 newBatchBarcode.setBatch(batch);
+                newBatchBarcode.setIsSynced(false);
+                newBatchBarcode.setUpdatedAt(LocalDateTime.now());
                 barcodeRepository.save(newBatchBarcode);
             }
         }
@@ -240,6 +256,9 @@ public class ProductService {
         if (batchUpdate.getCurrentQuantity() != null) batch.setCurrentQuantity(batchUpdate.getCurrentQuantity());
         if (batchUpdate.getExpiryDate() != null) batch.setExpiryDate(batchUpdate.getExpiryDate());
         if (batchUpdate.getManufactureDate() != null) batch.setManufactureDate(batchUpdate.getManufactureDate());
+
+        batch.setIsSynced(false);
+        batch.setUpdatedAt(LocalDateTime.now());
 
         return batchRepository.save(batch);
     }

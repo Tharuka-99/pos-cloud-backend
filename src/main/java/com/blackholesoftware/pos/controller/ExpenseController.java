@@ -57,7 +57,7 @@ public class ExpenseController {
 
             Expense savedExpense = expenseRepository.save(expense);
 
-            // 💡 Expense payment method එක CASH නම් පමණක් active Cash Session එකේ totalExpenses වැඩි කරන්න
+            // Expense payment method එක CASH නම් පමණක් active Cash Session එකේ totalExpenses වැඩි කරන්න
             if ("CASH".equalsIgnoreCase(payMethod)) {
                 Optional<CashSession> activeSessionOpt = cashSessionRepository.findAll()
                         .stream()

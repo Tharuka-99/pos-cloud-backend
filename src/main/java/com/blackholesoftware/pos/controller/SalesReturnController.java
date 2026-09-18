@@ -24,7 +24,6 @@ public class SalesReturnController {
     @Autowired private ProductRepository productRepository;
     @Autowired private UserRepository userRepository;
 
-    // 1. Process Item Return: POST /api/sales/returns
     @PostMapping
     @Transactional
     public ResponseEntity<ApiResponse<SalesReturn>> processReturn(@RequestBody ReturnRequestDto request) {
@@ -45,10 +44,8 @@ public class SalesReturnController {
             }
             Product product = productOpt.get();
 
-            // Integer වෙනුවට Double ලෙස Return Quantity ලබා ගැනීම (Supports Decimals e.g., 0.5kg)
             double returnQty = request.getReturnQuantity() != null ? request.getReturnQuantity().doubleValue() : 1.0;
 
-            // RESTORE BATCH STOCK ONLY (Supports Double/Decimals)
             Batch batch = null;
             if (request.getBatchId() != null && !request.getBatchId().trim().isEmpty()) {
                 batch = batchRepository.findById(request.getBatchId()).orElse(null);
@@ -57,8 +54,15 @@ public class SalesReturnController {
             if (batch != null) {
                 double currentQty = batch.getCurrentQuantity() != null ? batch.getCurrentQuantity() : 0.0;
                 batch.setCurrentQuantity(currentQty + returnQty);
+                batch.setIsSynced(false);
                 batchRepository.save(batch);
             }
+
+            // Also restore product master current stock
+            double prodStock = product.getCurrentStock() != null ? product.getCurrentStock() : 0.0;
+            product.setCurrentStock(prodStock + returnQty);
+            product.setIsSynced(false);
+            productRepository.save(product);
 
             User processedBy = null;
             if (request.getUserId() != null && !request.getUserId().trim().isEmpty()) {
@@ -102,10 +106,12 @@ public class SalesReturnController {
             List<SalesReturnItem> returnItems = new ArrayList<>();
             returnItems.add(returnItem);
             salesReturn.setItems(returnItems);
+            salesReturn.setIsSynced(false);
 
             SalesReturn savedReturn = salesReturnRepository.save(salesReturn);
 
             originalSale.setReturnStatus(Sale.BillReturnStatus.PARTIAL);
+            originalSale.setIsSynced(false);
             saleRepository.save(originalSale);
 
             return ResponseEntity.ok(new ApiResponse<>(true, "Bill Return Process completed successfully", savedReturn));
@@ -128,7 +134,6 @@ public class SalesReturnController {
         return processReturn(request);
     }
 
-    // 2. Settle Return Note Direct Endpoint
     @PostMapping("/{id}/settle")
     @Transactional
     public ResponseEntity<ApiResponse<SalesReturn>> settleReturnNote(@PathVariable("id") String returnId) {
@@ -150,6 +155,7 @@ public class SalesReturnController {
 
             SalesReturn salesReturn = returnOpt.get();
             salesReturn.setStatus(SalesReturn.ReturnStatus.SETTLED);
+            salesReturn.setIsSynced(false);
             SalesReturn updatedReturn = salesReturnRepository.save(salesReturn);
 
             return ResponseEntity.ok(new ApiResponse<>(true, "Return note settled successfully", updatedReturn));
@@ -193,7 +199,6 @@ public class SalesReturnController {
         }
     }
 
-    // Get All Returns for Dashboard / Report Page
     @GetMapping
     public ResponseEntity<ApiResponse<List<SalesReturn>>> getAllReturns() {
         try {

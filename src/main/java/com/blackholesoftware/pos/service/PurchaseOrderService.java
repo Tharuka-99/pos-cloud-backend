@@ -46,6 +46,8 @@ public class PurchaseOrderService {
         po.setSupplier(supplier);
         po.setStatus(PurchaseOrder.Status.PENDING);
         po.setOrderDate(LocalDateTime.now());
+        po.setIsSynced(false);
+        po.setUpdatedAt(LocalDateTime.now());
 
         double totalPoAmount = 0.0;
         List<PurchaseOrderItem> itemList = new ArrayList<>();
@@ -57,7 +59,6 @@ public class PurchaseOrderService {
             PurchaseOrderItem item = new PurchaseOrderItem();
             item.setProduct(product);
 
-            // 🟢 Decimal Support for PO Quantity
             Double qty = itemDto.getQuantity() != null ? itemDto.getQuantity().doubleValue() : 0.0;
             item.setQuantity(qty);
 
@@ -66,6 +67,8 @@ public class PurchaseOrderService {
 
             double total = cost * qty;
             item.setTotalPrice(total);
+            item.setIsSynced(false);
+            item.setUpdatedAt(LocalDateTime.now());
 
             totalPoAmount += total;
             itemList.add(item);
@@ -88,6 +91,8 @@ public class PurchaseOrderService {
         grn.setPurchaseOrder(po);
         grn.setReceivedDate(LocalDateTime.now());
         grn.setPaymentStatus(GRN.PaymentStatus.PAID);
+        grn.setIsSynced(false);
+        grn.setUpdatedAt(LocalDateTime.now());
 
         List<GRNItem> grnItems = new ArrayList<>();
         double grandTotal = 0.0;
@@ -99,25 +104,23 @@ public class PurchaseOrderService {
             Double sellingPrice = grnItemDto.getSellingPrice() != null ? grnItemDto.getSellingPrice() : 0.0;
             Double costPrice = grnItemDto.getCostPrice() != null ? grnItemDto.getCostPrice() : 0.0;
             Double discountAmount = grnItemDto.getDiscountAmount() != null ? grnItemDto.getDiscountAmount() : 0.0;
-
-            // 🟢 Integer -> Double conversion for GRN Received Quantity
             Double recQty = grnItemDto.getReceivedQty() != null ? grnItemDto.getReceivedQty().doubleValue() : 0.0;
             String itemBarcode = grnItemDto.getBarcode() != null ? grnItemDto.getBarcode().trim() : "";
 
-            // 1. Price OR Barcode check -> Existing Batch lookup
+            // 1. Price/Barcode matching batch lookup
             Optional<Batch> existingBatchOpt = batchRepository
                     .findByProductAndSellingPriceAndCostPriceAndDiscountAmountAndBarcode(
                             product, sellingPrice, costPrice, discountAmount, itemBarcode
                     );
 
             if (existingBatchOpt.isPresent()) {
-                // Batch එකේ values සමාන නම් existing batch quantity update කිරීම (Double Addition)
                 Batch existingBatch = existingBatchOpt.get();
                 Double currentBatchQty = existingBatch.getCurrentQuantity() != null ? existingBatch.getCurrentQuantity() : 0.0;
                 existingBatch.setCurrentQuantity(currentBatchQty + recQty);
+                existingBatch.setIsSynced(false);
+                existingBatch.setUpdatedAt(LocalDateTime.now());
                 batchRepository.save(existingBatch);
             } else {
-                // Price හෝ Barcode එක වෙනස් නම් NEW BATCH එකක් සෑදීම
                 Batch newBatch = new Batch();
                 newBatch.setBatchNo("BN-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 1000));
                 newBatch.setProduct(product);
@@ -128,15 +131,19 @@ public class PurchaseOrderService {
                 newBatch.setInitialQuantity(recQty);
                 newBatch.setCurrentQuantity(recQty);
                 newBatch.setCreatedAt(LocalDateTime.now());
+                newBatch.setIsSynced(false);
+                newBatch.setUpdatedAt(LocalDateTime.now());
                 batchRepository.save(newBatch);
             }
 
-            // 2. Product total stock update කිරීම
+            // 2. Product Total Stock Update
             Double currentProductStock = product.getCurrentStock() != null ? product.getCurrentStock() : 0.0;
             product.setCurrentStock(currentProductStock + recQty);
+            product.setIsSynced(false);
+            product.setUpdatedAt(LocalDateTime.now());
             productRepository.save(product);
 
-            // 3. GRN Item record එක සෑදීම
+            // 3. GRN Item Record Creation
             GRNItem grnItem = new GRNItem();
             grnItem.setProduct(product);
             grnItem.setQuantityReceived(recQty);
@@ -144,6 +151,8 @@ public class PurchaseOrderService {
             grnItem.setUnitSellingPrice(sellingPrice);
             double lineTotal = costPrice * recQty;
             grnItem.setTotalPrice(lineTotal);
+            grnItem.setIsSynced(false);
+            grnItem.setUpdatedAt(LocalDateTime.now());
 
             grnItems.add(grnItem);
             grandTotal += lineTotal;
@@ -157,6 +166,8 @@ public class PurchaseOrderService {
         GRN savedGrn = grnRepository.save(grn);
 
         po.setStatus(PurchaseOrder.Status.RECEIVED);
+        po.setIsSynced(false);
+        po.setUpdatedAt(LocalDateTime.now());
         purchaseOrderRepository.save(po);
 
         return savedGrn;

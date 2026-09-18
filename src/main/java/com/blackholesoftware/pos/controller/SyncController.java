@@ -77,12 +77,10 @@ public class SyncController {
             String key = entry.getKey();
             Object val = entry.getValue();
 
-            // 1. OneToMany Collections / Lists Ignore කිරීම
             if (val instanceof List<?>) {
                 continue;
             }
 
-            // 2. Foreign Object ID Auto-Extraction
             if (val instanceof Map<?, ?> nestedMap) {
                 if (nestedMap.containsKey("id")) {
                     String mappedCol = mapColumnName(key);
@@ -96,7 +94,6 @@ public class SyncController {
             }
         }
 
-        // Schema Adjustments
         if ("cash_sessions".equalsIgnoreCase(tableName)) {
             processedData.remove("username");
             processedData.remove("user_name");
@@ -131,7 +128,6 @@ public class SyncController {
         }
 
         if (count != null && count > 0) {
-            // UPDATE Logic
             StringBuilder updateSql = new StringBuilder("UPDATE ").append(safeTableName).append(" SET ");
             List<Object> params = new ArrayList<>();
 
@@ -163,7 +159,6 @@ public class SyncController {
 
             jdbcTemplate.update(updateSql.toString(), params.toArray());
         } else {
-            // INSERT Logic
             StringBuilder columns = new StringBuilder();
             StringBuilder placeholders = new StringBuilder();
             List<Object> params = new ArrayList<>();

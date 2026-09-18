@@ -4,7 +4,7 @@ import com.blackholesoftware.pos.entity.User;
 import com.blackholesoftware.pos.repository.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.crypto.password.PasswordEncoder; // Add PasswordEncoder
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,15 +15,13 @@ import java.util.Map;
 public class UserController {
 
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder; // Add field
+    private final PasswordEncoder passwordEncoder;
 
-    // Constructor Injection
     public UserController(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
-    // 1. Get all users
     @GetMapping
     public ResponseEntity<?> getAllUsers() {
         try {
@@ -35,7 +33,6 @@ public class UserController {
         }
     }
 
-    // 2. Create new user (BCrypt Encrypted)
     @PostMapping
     public ResponseEntity<?> createUser(@RequestBody User user) {
         try {
@@ -43,16 +40,15 @@ public class UserController {
                 return ResponseEntity.badRequest().body(Map.of("message", "Username already exists!"));
             }
 
-            // Encrypt plain-text password to BCrypt before saving to SQLite
             if (user.getPassword() != null && !user.getPassword().isEmpty()) {
                 user.setPassword(passwordEncoder.encode(user.getPassword()));
             }
 
-            // Set default active status if null
             if (user.getIsActive() == null) {
                 user.setIsActive(true);
             }
 
+            user.setIsSynced(false);
             User savedUser = userRepository.save(user);
             return ResponseEntity.ok(savedUser);
         } catch (Exception e) {
@@ -61,12 +57,12 @@ public class UserController {
         }
     }
 
-    // 3. Toggle active status
     @PutMapping("/{id}/toggle-status")
     public ResponseEntity<?> toggleUserStatus(@PathVariable String id) {
         try {
             return userRepository.findById(id).map(user -> {
                 user.setIsActive(!Boolean.TRUE.equals(user.getIsActive()));
+                user.setIsSynced(false);
                 userRepository.save(user);
                 return ResponseEntity.ok(user);
             }).orElse(ResponseEntity.notFound().build());

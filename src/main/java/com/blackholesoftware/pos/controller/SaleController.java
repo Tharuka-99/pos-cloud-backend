@@ -143,20 +143,20 @@ public class SaleController {
                             .orElse(null);
                 }
 
-                // Integer වෙනුවට Double ලෙස Quantity එක ලබා ගැනේ (eg: 500g -> 0.5kg)
                 double reqQty = itemDto.getQuantity() != null ? itemDto.getQuantity() : 0.0;
 
-                // DEDUCT BOTH BATCH STOCK AND PRODUCT TOTAL STOCK (SUPPORTS DECIMALS)
                 if (batch != null) {
                     if (batch.getCurrentQuantity() < reqQty) {
                         return ResponseEntity.badRequest().body(new ApiResponse<>(
                                 false, product.getName() + " සඳහා ප්‍රමාණවත් Batch Stock නොමැත! Available: " + batch.getCurrentQuantity(), null));
                     }
                     batch.setCurrentQuantity(batch.getCurrentQuantity() - reqQty);
+                    batch.setIsSynced(false);
                     batchRepository.save(batch);
 
                     double currentProdStock = product.getCurrentStock() != null ? product.getCurrentStock() : 0.0;
                     product.setCurrentStock(Math.max(0.0, currentProdStock - reqQty));
+                    product.setIsSynced(false);
                     productRepository.save(product);
 
                 } else {
@@ -177,7 +177,7 @@ public class SaleController {
                 saleItem.setProduct(product);
                 saleItem.setBatch(batch);
                 saleItem.setCustomer(customer);
-                saleItem.setQuantity(reqQty); // Double quantity ලෙස Save කරනු ලබයි
+                saleItem.setQuantity(reqQty);
                 saleItem.setUnitPrice(unitPrice);
                 saleItem.setUnitCost(batch.getCostPrice() != null ? batch.getCostPrice() : 0.0);
                 saleItem.setDiscount(itemDiscount);
@@ -199,6 +199,7 @@ public class SaleController {
                     SalesReturn appliedReturn = returnOpt.get();
                     returnCreditAmount = appliedReturn.getTotalRefundAmount() != null ? appliedReturn.getTotalRefundAmount() : 0.0;
                     appliedReturn.setStatus(SalesReturn.ReturnStatus.SETTLED);
+                    appliedReturn.setIsSynced(false);
                     salesReturnRepository.save(appliedReturn);
                 }
             }
@@ -232,7 +233,6 @@ public class SaleController {
                 double paidInput = request.getPaidAmount() != null ? request.getPaidAmount() : 0.0;
                 remainingCreditDebt = Math.max(0.0, netTotal - paidInput);
 
-                // Check Credit Limit Only
                 float currentCredit = customer.getCurrentCredit() != null ? customer.getCurrentCredit() : 0.0f;
                 if (customer.getCreditLimit() != null && customer.getCreditLimit() > 0 && (currentCredit + remainingCreditDebt) > customer.getCreditLimit()) {
                     return ResponseEntity.badRequest().body(new ApiResponse<>(
@@ -270,20 +270,19 @@ public class SaleController {
                 }
             }
 
+            sale.setIsSynced(false);
             Sale savedSale = saleRepository.save(sale);
 
-            // ONLY SINGLE PLACE: RECORD CREDIT & UPDATE CUSTOMER BALANCE ACCURATELY
             if (remainingCreditDebt > 0 && customer != null) {
                 CreditSaleRequestDTO creditDto = new CreditSaleRequestDTO();
                 creditDto.setCustomerId(customer.getId());
                 creditDto.setSaleId(savedSale.getId());
-                creditDto.setCreditAmount((float) remainingCreditDebt); // Direct Credit Amount Pass
+                creditDto.setCreditAmount((float) remainingCreditDebt);
                 creditDto.setNote("Bill Sale: " + savedSale.getInvoiceNumber());
 
                 customerCreditService.recordCreditSale(creditDto);
             }
 
-            // AUTO UPDATE CASH SESSION
             if (paymentEnum == Sale.PaymentMethod.CASH && actualCashAddedToDrawer > 0) {
                 try {
                     Optional<CashSession> activeSessionOpt = cashSessionRepository.findAll()
@@ -295,6 +294,7 @@ public class SaleController {
                         CashSession activeSession = activeSessionOpt.get();
                         double currentTotal = activeSession.getTotalCashSales() != null ? activeSession.getTotalCashSales() : 0.0;
                         activeSession.setTotalCashSales(currentTotal + actualCashAddedToDrawer);
+                        activeSession.setIsSynced(false);
                         cashSessionRepository.save(activeSession);
                     }
                 } catch (Exception ex) {
@@ -339,8 +339,8 @@ public class SaleController {
 
         sale.setPaidAmount(newPaid);
         sale.setBalanceAmount(newBalance);
+        sale.setIsSynced(false);
 
-        // RECORD REPAYMENT VIA SERVICE TO PREVENT DUPES AND SAVE TRANSACTION
         if (sale.getCustomer() != null) {
             customerCreditService.recordCreditPayment(
                     sale.getCustomer().getId(),

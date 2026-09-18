@@ -30,7 +30,6 @@ public class CustomerCreditService {
             throw new IllegalArgumentException("Customer ID cannot be empty for credit sale!");
         }
 
-        // DUPES PREVENT GUARD: Check if transaction for this Sale ID already exists
         if (dto.getSaleId() != null && !dto.getSaleId().trim().isEmpty()) {
             Optional<CustomerCreditTransaction> existingTx = creditTransactionRepository.findBySaleId(dto.getSaleId());
             if (existingTx.isPresent()) {
@@ -42,11 +41,8 @@ public class CustomerCreditService {
                 .orElseThrow(() -> new RuntimeException("Customer not found with ID: " + dto.getCustomerId()));
 
         float currentCredit = customer.getCurrentCredit() != null ? customer.getCurrentCredit() : 0.0f;
-
-        // Controller එකෙන් Direct එවන්නේ එකතු විය යුතු ණය මුදලයි (Net Debt)
         float addedCredit = dto.getCreditAmount() != null ? dto.getCreditAmount() : 0.0f;
 
-        // Total Amount එකක් DTO එකේ ආවොත් සහ Credit Amount එක 0 වුණොත් විතරක් Calculate කරන්න
         if (addedCredit == 0.0f && dto.getTotalAmount() != null && dto.getTotalAmount() > 0) {
             addedCredit = dto.getTotalAmount();
         }
@@ -54,6 +50,8 @@ public class CustomerCreditService {
         float newBalance = currentCredit + addedCredit;
 
         customer.setCurrentCredit(newBalance);
+        customer.setIsSynced(false);
+        customer.setUpdatedAt(LocalDateTime.now());
         customerRepository.save(customer);
 
         CustomerCreditTransaction transaction = CustomerCreditTransaction.builder()
@@ -67,10 +65,12 @@ public class CustomerCreditService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
+        transaction.setIsSynced(false);
+        transaction.setUpdatedAt(LocalDateTime.now());
+
         return creditTransactionRepository.saveAndFlush(transaction);
     }
 
-    // 2. Record Repayment (ණය ආපසු ගෙවීම - Cash Drawer එකට එකතු වන තැන)
     @Transactional
     public CustomerCreditTransaction recordRepayment(CreditPaymentRequestDTO dto) {
         Customer customer = customerRepository.findById(dto.getCustomerId())
@@ -81,6 +81,8 @@ public class CustomerCreditService {
         float newBalance = Math.max(currentCredit - paidAmount, 0.0f);
 
         customer.setCurrentCredit(newBalance);
+        customer.setIsSynced(false);
+        customer.setUpdatedAt(LocalDateTime.now());
         customerRepository.save(customer);
 
         CustomerCreditTransaction transaction = CustomerCreditTransaction.builder()
@@ -92,6 +94,9 @@ public class CustomerCreditService {
                 .note(dto.getNote() != null ? dto.getNote() : "Credit Repayment")
                 .createdAt(LocalDateTime.now())
                 .build();
+
+        transaction.setIsSynced(false);
+        transaction.setUpdatedAt(LocalDateTime.now());
 
         return creditTransactionRepository.save(transaction);
     }
@@ -126,29 +131,29 @@ public class CustomerCreditService {
             throw new IllegalArgumentException("Gevanulada mudala 0 ta vada vadi viya yuthui!");
         }
 
-        // Customer wa hoyageneema
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new RuntimeException("Customer hoyaganeemata nohaki viya: " + customerId));
 
         float currentCredit = customer.getCurrentCredit() != null ? customer.getCurrentCredit() : 0.0f;
-
-        // Naya adukireema (Balance after payment)
         float newBalance = Math.max(0.0f, currentCredit - paidAmount);
 
-        // Customer balance update
         customer.setCurrentCredit(newBalance);
+        customer.setIsSynced(false);
+        customer.setUpdatedAt(LocalDateTime.now());
         customerRepository.save(customer);
 
-        // Credit Transaction Record eka sadema
         CustomerCreditTransaction transaction = CustomerCreditTransaction.builder()
                 .customerId(customer.getId())
-                .transactionType(CustomerCreditTransaction.TransactionType.PAID) // transaction_type = PAID
+                .transactionType(CustomerCreditTransaction.TransactionType.PAID)
                 .amount(paidAmount)
                 .balanceAfter(newBalance)
                 .paymentMethod(paymentMethod != null ? paymentMethod.toUpperCase() : "CASH")
                 .note("Credit Settlement Payment")
                 .createdAt(LocalDateTime.now())
                 .build();
+
+        transaction.setIsSynced(false);
+        transaction.setUpdatedAt(LocalDateTime.now());
 
         return creditTransactionRepository.saveAndFlush(transaction);
     }
