@@ -10,7 +10,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/batches")
-@CrossOrigin(origins = "*", allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE})
 public class BatchController {
 
     private final ProductService productService;
@@ -19,12 +18,22 @@ public class BatchController {
         this.productService = productService;
     }
 
+    // Helper method to clean extra suffixes like :1 or spaces
+    private String sanitizeBatchId(String id) {
+        if (id == null) return null;
+        if (id.contains(":")) {
+            return id.split(":")[0].trim();
+        }
+        return id.trim();
+    }
+
     @PutMapping("/{batchId}")
     public ResponseEntity<ApiResponse<Batch>> updateBatch(
-            @PathVariable("batchId") String batchId,
+            @PathVariable("batchId") String rawBatchId,
             @RequestBody Batch batchUpdateData) {
         try {
-            Batch updatedBatch = productService.updateBatchDetails(batchId, batchUpdateData);
+            String cleanBatchId = sanitizeBatchId(rawBatchId);
+            Batch updatedBatch = productService.updateBatchDetails(cleanBatchId, batchUpdateData);
             return ResponseEntity.ok(new ApiResponse<>(true, "Batch updated successfully", updatedBatch));
         } catch (ResponseStatusException e) {
             return ResponseEntity.status(e.getStatusCode())
@@ -36,9 +45,10 @@ public class BatchController {
     }
 
     @DeleteMapping("/{batchId}")
-    public ResponseEntity<ApiResponse<Void>> deleteBatch(@PathVariable("batchId") String batchId) {
+    public ResponseEntity<ApiResponse<Void>> deleteBatch(@PathVariable("batchId") String rawBatchId) {
         try {
-            productService.deleteBatch(batchId);
+            String cleanBatchId = sanitizeBatchId(rawBatchId);
+            productService.deleteBatch(cleanBatchId);
             return ResponseEntity.ok(new ApiResponse<>(true, "Batch deleted successfully", null));
         } catch (ResponseStatusException e) {
             return ResponseEntity.status(e.getStatusCode())

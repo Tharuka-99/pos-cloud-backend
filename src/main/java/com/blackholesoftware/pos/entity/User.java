@@ -2,6 +2,7 @@ package com.blackholesoftware.pos.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 
 @Entity
@@ -13,17 +14,19 @@ import java.time.LocalDateTime;
 @Builder
 public class User extends BaseSyncEntity {
 
+    @JsonProperty("username")
     @Column(name = "username", nullable = false)
     private String username;
 
-    @Column(nullable = false)
+    @Column(name = "password", nullable = false)
     private String password;
 
+    @JsonProperty("full_name")
     @Column(name = "full_name", nullable = false)
     private String fullName;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "role", nullable = false)
     private Role role;
 
     @Builder.Default
