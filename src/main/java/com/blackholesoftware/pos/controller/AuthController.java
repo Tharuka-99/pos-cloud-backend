@@ -28,17 +28,21 @@ public class AuthController {
     // Database එකේ Default Admin නැත්නම් Seed කිරීම
     @PostConstruct
     public void initDefaultUser() {
-        if (userRepository.findByUsername("admin").isEmpty()) {
-            User admin = new User();
-            admin.setUsername("admin");
-            admin.setPassword(passwordEncoder.encode("admin123")); // BCrypt Encrypted
-            admin.setFullName("Suneri Admin");
-            admin.setRole(User.Role.ADMIN);
-            admin.setIsActive(true);
-            admin.setCreatedAt(LocalDateTime.now());
+        try {
+            if (userRepository.findByUsername("admin").isEmpty()) {
+                User admin = new User();
+                admin.setUsername("admin");
+                admin.setPassword(passwordEncoder.encode("admin123"));
+                admin.setFullName("System Admin");
+                admin.setRole(User.Role.ADMIN);
+                admin.setIsActive(true);
+                admin.setCreatedAt(LocalDateTime.now());
 
-            userRepository.save(admin);
-            System.out.println(">>> Seed Admin User Created in SQLite: (admin / admin123)");
+                userRepository.save(admin);
+                System.out.println(">>> Seed Admin User Created in SQLite: (admin / admin123)");
+            }
+        } catch (Exception e) {
+            System.err.println(">>> User initialization skipped/failed: " + e.getMessage());
         }
     }
 
