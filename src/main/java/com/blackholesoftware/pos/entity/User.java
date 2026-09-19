@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @Builder
 public class User extends BaseSyncEntity {
 
-    @Column(name = "user_name", nullable = false)
+    @Column(name = "username", nullable = false)
     private String username;
 
     @Column(nullable = false)
