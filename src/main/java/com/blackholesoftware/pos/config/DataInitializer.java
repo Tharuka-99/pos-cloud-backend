@@ -22,10 +22,11 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) {
         Map<String, String> defaultSettings = Map.of(
-                "SHOP_NAME", "Modern POS",
-                "SHOP_ADDRESS", "No. 12, Main Street, Colombo",
-                "SHOP_PHONE", "+94 77 123 4567",
-                "RECEIPT_HEADER", "Welcome to Blackhole!",
+                "SHOP_NAME", "හේමපාල සහ පුත්‍රයෝ",
+                "SHOP_ADDRESS", "1/132 A පොල් වගා ජනපදය, අම්පාර",
+                "SHOP_PHONE", "+94 75 333 5084",
+                "RECEIPT_HEADER", "Welcome !",
+                "SHOP_LOGO", "/logo.jpg",
                 "RECEIPT_FOOTER", "Thank you for shopping with us! Come again.",
                 "PRINTER_NAME", "POS-80",
                 "PRINTER_PAPER_SIZE", "80mm",
