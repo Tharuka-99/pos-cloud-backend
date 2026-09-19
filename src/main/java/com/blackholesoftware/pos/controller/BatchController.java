@@ -22,4 +22,10 @@ public class BatchController {
             @RequestBody Batch batchUpdateData) {
         return ResponseEntity.ok(new ApiResponse<>(true, "Batch updated successfully", productService.updateBatchDetails(batchId, batchUpdateData)));
     }
+
+    @DeleteMapping("/{batchId}")
+    public ResponseEntity<ApiResponse<Void>> deleteBatch(@PathVariable("batchId") String batchId) {
+        productService.deleteBatch(batchId);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Batch deleted successfully", null));
+    }
 }

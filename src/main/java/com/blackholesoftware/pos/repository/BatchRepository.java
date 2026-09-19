@@ -2,7 +2,6 @@ package com.blackholesoftware.pos.repository;
 
 import com.blackholesoftware.pos.entity.Batch;
 import com.blackholesoftware.pos.entity.Product;
-import com.blackholesoftware.pos.repository.BaseSyncRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -13,6 +12,10 @@ import java.util.Optional;
 public interface BatchRepository extends BaseSyncRepository<Batch, String> {
     List<Batch> findByProduct(Product product);
     List<Batch> findByProductId(String productId);
+    List<Batch> findByProductIdAndIsDeletedFalse(String productId);
+
+    @Query("SELECT b FROM Batch b WHERE b.product.id IN :productIds AND b.isDeleted = false")
+    List<Batch> findByProductIdInAndIsDeletedFalse(@Param("productIds") List<String> productIds);
 
     // Products සියල්ලටම අදාළ Batches එක Single Query එකෙන් ගන්න
     @Query("SELECT b FROM Batch b WHERE b.product.id IN :productIds")

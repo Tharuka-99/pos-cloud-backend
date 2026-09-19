@@ -55,6 +55,7 @@ public class ProductService {
         }
 
         product.setIsSynced(false);
+        product.setIsDeleted(false);
         product.setUpdatedAt(LocalDateTime.now());
         Product savedProduct = productRepository.save(product);
 
@@ -81,6 +82,7 @@ public class ProductService {
             batch.setExpiryDate(batchDto.getExpiryDate());
             batch.setProduct(savedProduct);
             batch.setIsSynced(false);
+            batch.setIsDeleted(false);
             batch.setUpdatedAt(LocalDateTime.now());
 
             Batch savedBatch = batchRepository.save(batch);
@@ -91,6 +93,7 @@ public class ProductService {
                 batchBarcodeEntity.setProduct(savedProduct);
                 batchBarcodeEntity.setBatch(savedBatch);
                 batchBarcodeEntity.setIsSynced(false);
+                batchBarcodeEntity.setIsDeleted(false);
                 batchBarcodeEntity.setUpdatedAt(LocalDateTime.now());
                 barcodeRepository.save(batchBarcodeEntity);
             }
@@ -99,20 +102,24 @@ public class ProductService {
             mainBarcode.setBarcode(dto.getBarcode().trim());
             mainBarcode.setProduct(savedProduct);
             mainBarcode.setIsSynced(false);
+            mainBarcode.setIsDeleted(false);
             mainBarcode.setUpdatedAt(LocalDateTime.now());
             barcodeRepository.save(mainBarcode);
         }
 
-        List<Batch> allBatches = batchRepository.findByProduct(savedProduct);
+        List<Batch> allBatches = batchRepository.findByProductIdAndIsDeletedFalse(savedProduct.getId());
         return mapToDTO(savedProduct, batch, allBatches);
     }
 
     public List<ProductResponseDTO> getAllProducts() {
-        List<Product> products = productRepository.findAll();
+        // Soft delete nogawunu products pamani
+        List<Product> products = productRepository.findByIsDeletedFalse();
         if (products.isEmpty()) return Collections.emptyList();
 
         List<String> productIds = products.stream().map(Product::getId).toList();
-        List<Batch> allBatches = batchRepository.findByProductIdIn(productIds);
+
+        // Active batches pamani fetch wenne
+        List<Batch> allBatches = batchRepository.findByProductIdInAndIsDeletedFalse(productIds);
 
         Map<String, List<Batch>> productBatchMap = allBatches.stream()
                 .filter(b -> b.getProduct() != null)
@@ -130,7 +137,7 @@ public class ProductService {
     }
 
     public List<Batch> getBatchesByProductId(String productId) {
-        return batchRepository.findByProductId(productId);
+        return batchRepository.findByProductIdAndIsDeletedFalse(productId);
     }
 
     @Transactional
@@ -173,6 +180,7 @@ public class ProductService {
                 pb.setBarcode(dto.getBarcode().trim());
                 pb.setProduct(product);
                 pb.setIsSynced(false);
+                pb.setIsDeleted(false);
                 pb.setUpdatedAt(LocalDateTime.now());
                 barcodeRepository.save(pb);
             }
@@ -207,6 +215,7 @@ public class ProductService {
         batch.setExpiryDate(batchDto.getExpiryDate());
         batch.setProduct(product);
         batch.setIsSynced(false);
+        batch.setIsDeleted(false);
         batch.setUpdatedAt(LocalDateTime.now());
 
         Batch savedBatch = batchRepository.save(batch);
@@ -217,6 +226,7 @@ public class ProductService {
             batchBarcode.setProduct(product);
             batchBarcode.setBatch(savedBatch);
             batchBarcode.setIsSynced(false);
+            batchBarcode.setIsDeleted(false);
             batchBarcode.setUpdatedAt(LocalDateTime.now());
             barcodeRepository.save(batchBarcode);
         }
@@ -245,6 +255,7 @@ public class ProductService {
                 newBatchBarcode.setProduct(batch.getProduct());
                 newBatchBarcode.setBatch(batch);
                 newBatchBarcode.setIsSynced(false);
+                newBatchBarcode.setIsDeleted(false);
                 newBatchBarcode.setUpdatedAt(LocalDateTime.now());
                 barcodeRepository.save(newBatchBarcode);
             }
@@ -261,6 +272,30 @@ public class ProductService {
         batch.setUpdatedAt(LocalDateTime.now());
 
         return batchRepository.save(batch);
+    }
+
+    // 🟢 Soft Delete Batch (Local & Sync friendly)
+    @Transactional
+    public void deleteBatch(String batchId) {
+        Batch batch = batchRepository.findById(batchId)
+                .orElseThrow(() -> new RuntimeException("Batch not found with id: " + batchId));
+
+        // 1. Related Barcodes mark as deleted
+        barcodeRepository.findByBatchId(batchId).ifPresent(barcode -> {
+            barcode.setIsDeleted(true);
+            barcode.setDeletedAt(LocalDateTime.now());
+            barcode.setIsSynced(false);
+            barcode.setUpdatedAt(LocalDateTime.now());
+            barcodeRepository.save(barcode);
+        });
+
+        // 2. Batch mark as deleted
+        batch.setIsDeleted(true);
+        batch.setDeletedAt(LocalDateTime.now());
+        batch.setIsSynced(false); // Enable for Sync engine to push deletion flag to cloud
+        batch.setUpdatedAt(LocalDateTime.now());
+
+        batchRepository.save(batch);
     }
 
     private ProductResponseDTO mapToDTO(Product product, Batch batch, List<Batch> batches) {
