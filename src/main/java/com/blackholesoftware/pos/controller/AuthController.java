@@ -25,7 +25,6 @@ public class AuthController {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    // Database එකේ Default Admin නැත්නම් Seed කිරීම
     @PostConstruct
     public void initDefaultUser() {
         try {
@@ -33,7 +32,7 @@ public class AuthController {
                 User admin = new User();
                 admin.setUsername("admin");
                 admin.setPassword(passwordEncoder.encode("admin123"));
-                admin.setFullName("System Admin");
+                admin.setFullName("Suneri Admin");
                 admin.setRole(User.Role.ADMIN);
                 admin.setIsActive(true);
                 admin.setCreatedAt(LocalDateTime.now());
@@ -42,7 +41,7 @@ public class AuthController {
                 System.out.println(">>> Seed Admin User Created in SQLite: (admin / admin123)");
             }
         } catch (Exception e) {
-            System.err.println(">>> User initialization skipped/failed: " + e.getMessage());
+            System.err.println(">>> Admin initialization skipped/failed: " + e.getMessage());
         }
     }
 
@@ -53,7 +52,6 @@ public class AuthController {
         if (userOptional.isPresent()) {
             User user = userOptional.get();
 
-            // Account එක Active ද සහ Password එක Match වෙනවාදැයි පරීක්ෂා කිරීම
             if (Boolean.TRUE.equals(user.getIsActive()) && passwordEncoder.matches(request.getPassword(), user.getPassword())) {
                 AuthResponseData responseData = new AuthResponseData(
                         user.getId(),

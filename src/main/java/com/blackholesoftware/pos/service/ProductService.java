@@ -4,8 +4,10 @@ import com.blackholesoftware.pos.dto.ProductRequestDTO;
 import com.blackholesoftware.pos.dto.ProductResponseDTO;
 import com.blackholesoftware.pos.entity.*;
 import com.blackholesoftware.pos.repository.*;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -112,13 +114,10 @@ public class ProductService {
     }
 
     public List<ProductResponseDTO> getAllProducts() {
-        // Soft delete nogawunu products pamani
         List<Product> products = productRepository.findByIsDeletedFalse();
         if (products.isEmpty()) return Collections.emptyList();
 
         List<String> productIds = products.stream().map(Product::getId).toList();
-
-        // Active batches pamani fetch wenne
         List<Batch> allBatches = batchRepository.findByProductIdInAndIsDeletedFalse(productIds);
 
         Map<String, List<Batch>> productBatchMap = allBatches.stream()
@@ -143,7 +142,7 @@ public class ProductService {
     @Transactional
     public void updateProduct(String id, ProductRequestDTO dto) {
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found with id: " + id));
 
         product.setName(dto.getName());
         product.setDescription(dto.getDescription());
@@ -151,19 +150,19 @@ public class ProductService {
         if (dto.getReorderLevel() != null) product.setReorderLevel(dto.getReorderLevel());
 
         if (dto.getCategoryId() != null) {
-            categoryRepository.findById(dto.getCategoryId()).ifPresent(product::setCategory);
+            categoryRepository.findById(dto.getCategoryId()).ifPresentOrElse(product::setCategory, () -> product.setCategory(null));
         } else {
             product.setCategory(null);
         }
 
         if (dto.getBrandId() != null) {
-            brandRepository.findById(dto.getBrandId()).ifPresent(product::setBrand);
+            brandRepository.findById(dto.getBrandId()).ifPresentOrElse(product::setBrand, () -> product.setBrand(null));
         } else {
             product.setBrand(null);
         }
 
         if (dto.getUnitId() != null) {
-            unitRepository.findById(dto.getUnitId()).ifPresent(product::setUnit);
+            unitRepository.findById(dto.getUnitId()).ifPresentOrElse(product::setUnit, () -> product.setUnit(null));
         } else {
             product.setUnit(null);
         }
@@ -194,7 +193,7 @@ public class ProductService {
     @Transactional
     public Batch addBatchToExistingProduct(String productId, ProductRequestDTO.InitialBatchDTO batchDto) {
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new RuntimeException("Product not found with id: " + productId));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found with id: " + productId));
 
         Batch batch = new Batch();
         batch.setBatchNo(generateBatchNo(batchDto.getBatchNo()));
@@ -237,7 +236,7 @@ public class ProductService {
     @Transactional
     public Batch updateBatchDetails(String batchId, Batch batchUpdate) {
         Batch batch = batchRepository.findById(batchId)
-                .orElseThrow(() -> new RuntimeException("Batch not found with id: " + batchId));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Batch not found with id: " + batchId));
 
         if (batchUpdate.getBarcode() != null && !batchUpdate.getBarcode().isBlank()) {
             String newBarcode = batchUpdate.getBarcode().trim();
@@ -252,7 +251,9 @@ public class ProductService {
             } else {
                 ProductBarcode newBatchBarcode = new ProductBarcode();
                 newBatchBarcode.setBarcode(newBarcode);
-                newBatchBarcode.setProduct(batch.getProduct());
+                if (batch.getProduct() != null) {
+                    newBatchBarcode.setProduct(batch.getProduct());
+                }
                 newBatchBarcode.setBatch(batch);
                 newBatchBarcode.setIsSynced(false);
                 newBatchBarcode.setIsDeleted(false);
@@ -274,13 +275,11 @@ public class ProductService {
         return batchRepository.save(batch);
     }
 
-    // 🟢 Soft Delete Batch (Local & Sync friendly)
     @Transactional
     public void deleteBatch(String batchId) {
         Batch batch = batchRepository.findById(batchId)
-                .orElseThrow(() -> new RuntimeException("Batch not found with id: " + batchId));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Batch not found with id: " + batchId));
 
-        // 1. Related Barcodes mark as deleted
         barcodeRepository.findByBatchId(batchId).ifPresent(barcode -> {
             barcode.setIsDeleted(true);
             barcode.setDeletedAt(LocalDateTime.now());
@@ -289,10 +288,9 @@ public class ProductService {
             barcodeRepository.save(barcode);
         });
 
-        // 2. Batch mark as deleted
         batch.setIsDeleted(true);
         batch.setDeletedAt(LocalDateTime.now());
-        batch.setIsSynced(false); // Enable for Sync engine to push deletion flag to cloud
+        batch.setIsSynced(false);
         batch.setUpdatedAt(LocalDateTime.now());
 
         batchRepository.save(batch);
